@@ -9,6 +9,7 @@ router = APIRouter()
 
 @router.post("/analyze")
 async def analyze_news(request: NewsRequest):
+    print(f"📥 Received request: Topic='{request.topic}', URLs={request.urls}")
     async def event_generator():
         # Initial input for the graph
         initial_state = {"urls": request.urls, "topic": request.topic, "messages": []}

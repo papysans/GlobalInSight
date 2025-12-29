@@ -3,7 +3,8 @@
         <div class="bg-slate-50 rounded-2xl p-4 min-h-[300px]">
             <div class="text-xs text-slate-400 mb-2">小红书预览</div>
             <h3 class="text-lg font-bold mb-3" v-if="finalCopy.title">{{ finalCopy.title }}</h3>
-            <p class="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{{ finalCopy.body || '等待生成...' }}</p>
+            <div class="text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none prose-slate"
+                v-html="renderMarkdown(finalCopy.body || '等待生成...')"></div>
         </div>
     </div>
 </template>
@@ -11,7 +12,13 @@
 <script setup>
 import { computed } from 'vue';
 import { useAnalysisStore } from '../stores/analysis';
+import MarkdownIt from 'markdown-it';
 
+const md = new MarkdownIt();
 const store = useAnalysisStore();
 const finalCopy = computed(() => store.finalCopy);
+
+const renderMarkdown = (text) => {
+    return md.render(text || '');
+};
 </script>

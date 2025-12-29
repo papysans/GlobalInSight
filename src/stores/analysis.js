@@ -5,17 +5,20 @@ export const useAnalysisStore = defineStore("analysis", {
         logs: [],
         finalCopy: { title: "", body: "" },
         isLoading: false,
+        error: null,
     }),
     actions: {
         async startAnalysis(payload) {
             this.logs = [];
             this.finalCopy = { title: "", body: "" };
             this.isLoading = true;
+            this.error = null;
 
             try {
                 await this.readStream(payload);
             } catch (err) {
                 console.error("startAnalysis error", err);
+                this.error = err.message || "请求失败，请检查后端服务是否启动";
             } finally {
                 this.isLoading = false;
             }

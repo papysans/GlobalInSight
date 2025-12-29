@@ -101,7 +101,7 @@ async def reporter_node(state: GraphState):
     content = extract_text_content(response.content)
     return {
         "news_content": content,
-        "messages": [f"Reporter: {content[:100]}..."]
+        "messages": [f"Reporter: {content}"]
     }
 
 async def analyst_node(state: GraphState):
@@ -128,7 +128,7 @@ async def analyst_node(state: GraphState):
     return {
         "initial_analysis": content,
         "revision_count": state.get("revision_count", 0) + 1 if critique else 0,
-        "messages": [f"Analyst: {content[:100]}..."],
+        "messages": [f"Analyst: {content}"],
         "debate_history": history
     }
 
@@ -152,7 +152,7 @@ async def debater_node(state: GraphState):
     
     return {
         "critique": content,
-        "messages": [f"Debater: {content[:100]}..."],
+        "messages": [f"Debater: {content}"],
         "debate_history": history
     }
 
@@ -190,7 +190,7 @@ async def writer_node(state: GraphState):
         
     return {
         "final_copy": content,
-        "messages": [f"Writer: {content[:100]}...", f"System: Document saved to {file_path}"]
+        "messages": [f"Writer: {content}\n\nSystem: Document saved to {file_path}"]
     }
 
 # --- 5. Conditional Logic ---

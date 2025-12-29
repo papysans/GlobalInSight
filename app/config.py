@@ -26,10 +26,10 @@ class Config:
     # --- Agent Configuration (Select Provider Here) ---
     # Options for provider: "moonshot", "gemini", "openai"
     AGENT_CONFIG = {
-        "reporter": {"provider": "gemini", "model": GEMINI_MODEL},
-        "analyst": {"provider": "gemini", "model": GEMINI_MODEL},
-        "debater": {"provider": "gemini", "model": GEMINI_MODEL},
-        "writer": {"provider": "gemini", "model": GEMINI_MODEL},
+        "reporter": {"provider": "moonshot", "model": MOONSHOT_MODEL},
+        "analyst": {"provider": "moonshot", "model": MOONSHOT_MODEL},
+        "debater": {"provider": "moonshot", "model": MOONSHOT_MODEL},
+        "writer": {"provider": "moonshot", "model": MOONSHOT_MODEL},
     }
 
     # --- Workflow Settings ---

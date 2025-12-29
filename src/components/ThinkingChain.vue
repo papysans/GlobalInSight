@@ -12,8 +12,8 @@
                         <span class="font-semibold" :class="textColor(log.agent_name)">{{ log.agent_name }}</span>
                         <span class="text-xs text-slate-400">{{ log.status }}</span>
                     </div>
-                    <p class="text-sm text-slate-700 whitespace-pre-line leading-relaxed mt-1">{{ log.step_content }}
-                    </p>
+                    <div class="text-sm text-slate-700 leading-relaxed mt-1 prose prose-sm max-w-none prose-slate"
+                        v-html="renderMarkdown(log.step_content)"></div>
                 </div>
             </div>
             <div v-if="isLoading" class="text-sm text-slate-400">流式更新中...</div>
@@ -24,10 +24,16 @@
 <script setup>
 import { computed } from 'vue';
 import { useAnalysisStore } from '../stores/analysis';
+import MarkdownIt from 'markdown-it';
 
+const md = new MarkdownIt();
 const store = useAnalysisStore();
 const logs = computed(() => store.logs);
 const isLoading = computed(() => store.isLoading);
+
+const renderMarkdown = (text) => {
+    return md.render(text || '');
+};
 
 const avatarColor = (name) => {
     const map = {
