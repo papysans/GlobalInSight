@@ -32,4 +32,7 @@ class Config:
         "writer": {"provider": "gemini", "model": GEMINI_MODEL},
     }
 
+    # --- Workflow Settings ---
+    DEBATE_MAX_ROUNDS = 4 # Maximum number of debate rounds between Analyst and Debater
+
 settings = Config()
