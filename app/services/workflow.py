@@ -215,6 +215,13 @@ async def analyst_node(state: GraphState):
     prompt = f"新闻事实: {news_content}"
     if critique:
         prompt += f"\n\n需要解决的反对意见: {critique}"
+    
+    # Calculate current round number (0-based, but display as 1-based)
+    current_revision_count = state.get("revision_count", 0)
+    if critique:
+        # If there's a critique, this is a new round, so increment
+        current_revision_count += 1
+    # If no critique, this is the first round, so revision_count stays 0
         
     messages = [
         SystemMessage(content=ANALYST_PROMPT),
@@ -225,11 +232,11 @@ async def analyst_node(state: GraphState):
     
     # Update history
     history = state.get("debate_history", [])
-    history.append(f"### Analyst (Round {state.get('revision_count', 0) + 1})\n{content}\n")
+    history.append(f"### Analyst (Round {current_revision_count + 1})\n{content}\n")
     
     return {
         "initial_analysis": content,
-        "revision_count": state.get("revision_count", 0) + 1 if critique else 0,
+        "revision_count": current_revision_count,
         "messages": [f"Analyst: {content}"],
         "debate_history": history
     }
@@ -306,8 +313,13 @@ def should_continue(state: GraphState):
         critique = str(critique)
     elif critique is None:
         critique = ""
-        
-    if "VERDICT_PASS" in critique.upper() or revision_count >= settings.DEBATE_MAX_ROUNDS:
+    
+    # Check if we should stop: PASS verdict or reached max rounds
+    # Note: revision_count is 0-based, so we check >= max_rounds
+    # If max_rounds=4, we allow rounds 0,1,2,3 (4 rounds total)
+    if "VERDICT_PASS" in critique.upper() or "PASS" in critique.upper() or revision_count >= settings.DEBATE_MAX_ROUNDS:
+        if revision_count >= settings.DEBATE_MAX_ROUNDS:
+            print(f"[INFO] 已达到最大辩论轮数 ({settings.DEBATE_MAX_ROUNDS} 轮)，停止辩论")
         return "writer"
     return "analyst"
 

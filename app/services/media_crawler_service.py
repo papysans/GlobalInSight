@@ -15,6 +15,7 @@ if MEDIA_CRAWLER_PATH not in sys.path:
     sys.path.insert(0, MEDIA_CRAWLER_PATH)
 
 from app.services.in_memory_store import InMemoryStore
+from app.services.cookie_manager import cookie_manager
 
 
 class MediaCrawlerService:
@@ -87,37 +88,50 @@ class MediaCrawlerService:
                 mc_config.CDP_HEADLESS = True
                 mc_config.ENABLE_CDP_MODE = True  # Use CDP mode for better stability
             mc_config.SAVE_DATA_OPTION = "json"  # We'll intercept store calls
+            # Enable login state saving to browser_data directory
+            mc_config.SAVE_LOGIN_STATE = True  # Save login state to avoid repeated QR code scanning
             # Set login type - use cookie if available, otherwise qrcode
+            # First try to load saved cookie from cookie manager
+            saved_cookie = cookie_manager.get_cookie(normalized_platform)
+            if saved_cookie:
+                mc_config.COOKIES = saved_cookie
+                print(f"[信息] 已加载 {normalized_platform} 的保存的 Cookie，将使用 Cookie 登录")
+            
             # For Bilibili and Weibo, prefer cookie login to avoid manual QR code scanning
             if normalized_platform == "bili":
                 # Try cookie login first if cookies are available
                 if mc_config.COOKIES and mc_config.COOKIES.strip():
                     mc_config.LOGIN_TYPE = "cookie"  # Use saved cookies
+                    print(f"[信息] B站将使用 Cookie 登录（无需扫码）")
                 else:
                     # No cookie available, will need QR code login
                     # But we'll set a shorter timeout for login
                     mc_config.LOGIN_TYPE = "qrcode"  # Will show QR code for manual login
                     print(f"[信息] B站需要登录。浏览器将打开以扫描二维码登录。")
-                    print(f"[信息] 请在2分钟内扫描二维码，或配置COOKIES以跳过登录。")
+                    print(f"[信息] 请在2分钟内扫描二维码，登录成功后 Cookie 将自动保存。")
             elif normalized_platform == "wb":
                 # Weibo also supports cookie login
                 if mc_config.COOKIES and mc_config.COOKIES.strip():
                     mc_config.LOGIN_TYPE = "cookie"  # Use saved cookies
+                    print(f"[信息] 微博将使用 Cookie 登录（无需扫码）")
                 else:
                     # No cookie available, will need QR code login
                     mc_config.LOGIN_TYPE = "qrcode"  # Will show QR code for manual login
                     print(f"[信息] 微博需要登录。浏览器将打开以扫描二维码登录。")
-                    print(f"[信息] 请在2分钟内扫描二维码，或配置COOKIES以跳过登录。")
+                    print(f"[信息] 请在2分钟内扫描二维码，登录成功后 Cookie 将自动保存。")
             elif normalized_platform in ["xhs", "tieba", "dy", "ks", "zhihu"]:
                 # Other platforms also need login
                 if mc_config.COOKIES and mc_config.COOKIES.strip():
                     mc_config.LOGIN_TYPE = "cookie"
+                    platform_names = {"xhs": "小红书", "tieba": "贴吧", "dy": "抖音", "ks": "快手", "zhihu": "知乎"}
+                    platform_cn = platform_names.get(normalized_platform, normalized_platform)
+                    print(f"[信息] {platform_cn}将使用 Cookie 登录（无需扫码）")
                 else:
                     mc_config.LOGIN_TYPE = "qrcode"
                     platform_names = {"xhs": "小红书", "tieba": "贴吧", "dy": "抖音", "ks": "快手", "zhihu": "知乎"}
                     platform_cn = platform_names.get(normalized_platform, normalized_platform)
                     print(f"[信息] {platform_cn}需要登录。浏览器将打开以扫描二维码登录。")
-                    print(f"[信息] 请在浏览器窗口中扫描二维码，或配置COOKIES以跳过登录。")
+                    print(f"[信息] 请在浏览器窗口中扫描二维码，登录成功后 Cookie 将自动保存。")
             else:
                 mc_config.LOGIN_TYPE = "qrcode"  # Default to QR code login
             # Disable media download to speed up crawling
@@ -288,6 +302,18 @@ class MediaCrawlerService:
                     
                     # Run with timeout
                     await asyncio.wait_for(crawler.start(), timeout=timeout)
+                    
+                    # After successful start, try to extract and save cookies
+                    # This will save cookies for next time, avoiding QR code login
+                    try:
+                        if hasattr(crawler, "browser_context") and crawler.browser_context:
+                            cookies = await crawler.browser_context.cookies()
+                            if cookies:
+                                cookie_manager.save_cookies_from_browser(normalized_platform, cookies)
+                    except Exception as e:
+                        # Cookie extraction is optional, don't fail if it doesn't work
+                        print(f"[提示] 未能自动保存 Cookie（不影响使用）: {e}")
+                        
                 except asyncio.TimeoutError:
                     print(f"[警告] 平台 {platform} 爬取超时，已等待 {timeout} 秒")
                     if normalized_platform == "bili":

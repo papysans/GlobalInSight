@@ -33,3 +33,6 @@ outputs/
 
 # Browser data and cache
 browser_data/
+
+# Cookies (sensitive data)
+cookies.json
