@@ -53,9 +53,6 @@ class Config:
     # Default platforms to search if none provided
     # Options: "wb", "dy", "ks", "bili", "tieba", "zhihu", "xhs"
     DEFAULT_PLATFORMS = ["wb", "bili"]
-    
-    # Set to True to use MockCrawler (no real network requests)
-    USE_MOCK_CRAWLER = False
 
     # Crawler Limits (per platform)
     # max_items: Number of posts/articles to retrieve
@@ -69,8 +66,5 @@ class Config:
         "tieba": {"max_items": 5, "max_comments": 10},
         "ks": {"max_items": 5, "max_comments": 10},
     }
-
-    # --- MediaCrawler Configuration ---
-    MEDIA_CRAWLER_API_URL = "http://localhost:8080"
 
 settings = Config()
