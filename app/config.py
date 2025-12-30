@@ -39,11 +39,26 @@ class Config:
 
     # --- Agent Configuration (Select Provider Here) ---
     # Options for provider: "moonshot", "gemini", "openai", "deepseek", "doubao", "zhipu"
+    # Supports fallback: if the first provider fails, it will try the next one
     AGENT_CONFIG = {
-        "reporter": {"provider": "deepseek", "model": DEEPSEEK_MODEL},
-        "analyst": {"provider": "deepseek", "model": DEEPSEEK_MODEL},
-        "debater": {"provider": "deepseek", "model": DEEPSEEK_MODEL},
-        "writer": {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+        "reporter": [
+            {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+            {"provider": "moonshot", "model": MOONSHOT_MODEL},
+            {"provider": "doubao", "model": DOUBAO_MODEL},
+        ],
+        "analyst": [
+            {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+            {"provider": "moonshot", "model": MOONSHOT_MODEL},
+        ],
+        "debater": [
+            {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+            {"provider": "moonshot", "model": MOONSHOT_MODEL},
+            {"provider": "doubao", "model": DOUBAO_MODEL},
+        ],
+        "writer": [
+            {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+            {"provider": "moonshot", "model": MOONSHOT_MODEL},
+        ],
     }
 
     # --- Workflow Settings ---
