@@ -62,12 +62,12 @@ class Config:
     }
 
     # --- Workflow Settings ---
-    DEBATE_MAX_ROUNDS = 2 # Maximum number of debate rounds between Analyst and Debater
+    DEBATE_MAX_ROUNDS = 4 # Maximum number of debate rounds between Analyst and Debater
 
     # --- Crawler Settings ---
     # Default platforms to search if none provided
     # Options: "wb", "dy", "ks", "bili", "tieba", "zhihu", "xhs"
-    DEFAULT_PLATFORMS = ["dy"]
+    DEFAULT_PLATFORMS = ["wb", "bili"]
 
     # Crawler Limits (per platform)
     # max_items: Number of posts/articles to retrieve
