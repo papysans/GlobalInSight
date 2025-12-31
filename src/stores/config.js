@@ -9,10 +9,21 @@ export const useConfigStore = defineStore('config', {
     }),
 
     getters: {
-        llmProviders: (state) => state.config ? .llm_providers || {},
-        crawlerLimits: (state) => state.config ? .crawler_limits || {},
-        debateMaxRounds: (state) => state.config ? .debate_max_rounds || 4,
-        defaultPlatforms: (state) => state.config ? .default_platforms || [],
+        llmProviders: (state) => (state.config && state.config.llm_providers) || {},
+        crawlerLimits: (state) => (state.config && state.config.crawler_limits) || {},
+        debateMaxRounds: (state) => (state.config && state.config.debate_max_rounds) || 4,
+        defaultPlatforms: (state) => (state.config && state.config.default_platforms) || [],
+        getUserApis: () => {
+            const saved = localStorage.getItem('grandchart_user_apis_v2');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return [];
+                }
+            }
+            return [];
+        },
     },
 
     actions: {
@@ -53,6 +64,10 @@ export const useConfigStore = defineStore('config', {
             } finally {
                 this.loading = false;
             }
+        },
+
+        saveUserApis(apis) {
+            localStorage.setItem('grandchart_user_apis_v2', JSON.stringify(apis));
         },
     },
 });

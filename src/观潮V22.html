@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>观潮 GrandChart V22 - 舆情洞察与小红书创作引擎</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            overflow-y: scroll;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .debate-bubble {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        
+        .nav-link.active {
+            color: #2563eb;
+            background-color: #eff6ff;
+        }
+        
+        /* 3:4 Aspect Ratio Container for Poster */
+        .poster-container {
+            aspect-ratio: 3/4;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transition: transform 0.3s ease;
+        }
+        
+        .btn-selected {
+            background-color: #eff6ff !important;
+            border-color: #3b82f6 !important;
+            color: #1d4ed8 !important;
+        }
+        
+        .theme-btn.active {
+            ring-width: 2px;
+            ring-color: #3b82f6;
+            transform: scale(1.1);
+        }
+
+        .locked-overlay {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background-color: #94a3b8;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+            margin: 0 1px;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Modal Center Fix */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen">
+
+    <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('home')">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                        <i data-lucide="waves" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-xl font-bold text-slate-800 tracking-tight">观潮 <span class="font-light text-blue-600">GrandChart</span></span>
+                </div>
+                
+                <div class="hidden md:flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-100/50 p-1 rounded-full border border-slate-200/50">
+                    <button onclick="switchTab('home')" id="nav-home" class="nav-link active px-4 py-1.5 rounded-full transition-all hover:text-blue-600 flex items-center gap-1">
+                        <i data-lucide="zap" class="w-3 h-3"></i> 舆情推演
+                    </button>
+                    <button onclick="switchTab('data')" id="nav-data" class="nav-link px-4 py-1.5 rounded-full transition-all hover:text-blue-600 flex items-center gap-1">
+                        <i data-lucide="pie-chart" class="w-3 h-3"></i> 数据洞察
+                    </button>
+                    <button onclick="switchTab('arch')" id="nav-arch" class="nav-link px-4 py-1.5 rounded-full transition-all hover:text-blue-600 flex items-center gap-1">
+                        <i data-lucide="network" class="w-3 h-3"></i> 系统架构
+                    </button>
+                    <button onclick="switchTab('vision')" id="nav-vision" class="nav-link px-4 py-1.5 rounded-full transition-all hover:text-blue-600 flex items-center gap-1">
+                        <i data-lucide="flag" class="w-3 h-3"></i> 愿景与价值
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button onclick="switchTab('settings')" id="nav-settings" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex items-center gap-1" title="接口管理">
+                        <i data-lucide="plug" class="w-5 h-5"></i>
+                        <span class="text-xs font-bold hidden sm:inline">接口配置</span>
+                        <span id="apiBadge" class="hidden w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow relative pb-20">
+        
+        <!-- HOME VIEW -->
+        <div id="view-home" class="view-section animate-fade-in">
+            <header class="relative bg-white border-b border-slate-100 pt-12 pb-8 px-4">
+                <div class="max-w-4xl mx-auto text-center">
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+                        舆情洞察与<span class="gradient-text">爆款文案生成</span>引擎
+                    </h1>
+                    
+                    <div class="max-w-2xl mx-auto mt-8 relative z-10">
+                        <div class="relative group">
+                            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                            <div class="relative flex items-center bg-white rounded-xl shadow-xl border border-slate-200 p-1">
+                                <div class="pl-4 text-slate-400">
+                                    <i data-lucide="search" class="w-5 h-5"></i>
+                                </div>
+                                <input type="text" id="topicInput" 
+                                    class="w-full py-3 px-4 text-slate-700 bg-transparent outline-none placeholder:text-slate-400" 
+                                    placeholder="输入您想了解的任何议题...">
+                                
+                                <div class="h-8 border-l border-slate-200 mx-2"></div>
+                                
+                                <div class="flex items-center gap-2 pr-2" title="辩论轮数">
+                                    <span class="text-xs text-slate-400 font-bold whitespace-nowrap">轮数:</span>
+                                    <input type="number" id="debateRounds" value="2" min="1" max="5" class="w-12 py-1 px-2 text-center text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500">
+                                </div>
+
+                                <button onclick="handleStartClick()" id="mainStartBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-md whitespace-nowrap min-w-[120px] justify-center">
+                                    <i data-lucide="sparkles" class="w-4 h-4"></i> 启动分析
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-500">
+                            <div class="flex items-center gap-1 font-bold text-red-500">
+                                <i data-lucide="trending-up" class="w-3 h-3"></i> <span id="trendingDate">今日</span>热搜:
+                            </div>
+                            <div id="trendingTopicsContainer" class="flex gap-2"></div>
+                            <button onclick="refreshTrending()" class="ml-1 p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" title="刷新热搜">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <section class="py-8 px-4 max-w-7xl mx-auto space-y-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    
+                    <!-- Left: Debate & Insight -->
+                    <div class="lg:col-span-7 flex flex-col gap-6">
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center justify-between px-1 h-8">
+                                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="cpu" class="w-5 h-5 text-blue-600"></i> 智能体协作 (Multi-Agent Debate)
+                                </h2>
+                                <div id="simControls" class="hidden flex items-center gap-2">
+                                    <div class="px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-medium flex items-center gap-2">
+                                        <span class="relative flex h-2 w-2">
+                                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                          <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                        </span>
+                                        <span id="runningStatusText">Real-time Inference</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-card rounded-xl flex flex-col border-t-4 border-t-blue-500 h-[450px] shadow-lg relative overflow-hidden">
+                                <div class="p-3 bg-slate-50/80 border-b border-slate-100 flex justify-between items-center backdrop-blur text-xs font-bold text-slate-600 z-10">
+                                    <span>AI 辩论过程实时推演</span>
+                                    <span class="text-slate-400 font-normal text-[10px]" id="activeModelDisplay"></span>
+                                </div>
+                                <div id="debateContainer" class="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 font-mono text-sm bg-white/50 relative scroll-smooth">
+                                    <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                                        <i data-lucide="bot" class="w-16 h-16 mb-4 stroke-1"></i>
+                                        <p>等待指令启动...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 px-1">
+                                <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-500"></i> 核心洞察 (Grand Insight)
+                            </h2>
+                            <div class="glass-card rounded-xl p-5 shadow-md border-l-4 border-l-yellow-400 min-h-[140px] flex flex-col">
+                                <div id="insightContent" class="text-sm text-slate-600 leading-relaxed flex-1 flex flex-col">
+                                    <div class="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 italic text-xs">
+                                        等待辩论结论产出...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: XHS Preview -->
+                    <div class="lg:col-span-5 flex flex-col gap-2">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 px-1">
+                            <i data-lucide="smartphone" class="w-5 h-5 text-purple-600"></i> 实时生成预览 (Preview)
+                        </h2>
+
+                        <div class="glass-card p-6 rounded-xl shadow-lg flex justify-center bg-slate-100/50">
+                            <div class="glass-card rounded-[3rem] overflow-hidden shadow-2xl border-[8px] border-slate-800 bg-white w-full max-w-[300px] h-[600px] flex flex-col transform transition hover:scale-[1.02] duration-300">
+                                <!-- Status Bar -->
+                                <div class="relative bg-white px-5 h-10 flex items-center justify-between z-10 flex-shrink-0 select-none">
+                                    <span class="text-[10px] font-bold text-slate-900 w-8">09:41</span>
+                                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-black rounded-full flex justify-center items-center">
+                                        <div class="w-1.5 h-1.5 bg-gray-800 rounded-full absolute right-4"></div>
+                                    </div>
+                                    <div class="w-8 flex justify-end">
+                                        <i data-lucide="wifi" class="w-3 h-3 text-slate-900"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Screen Content -->
+                                <div class="relative cursor-pointer group flex-1 flex flex-col overflow-hidden" onclick="switchPhoneImage()" title="点击切换配图风格">
+                                    <div id="phoneImageBg" class="aspect-[3/4] relative overflow-hidden flex-shrink-0 transition-colors duration-500 bg-slate-100">
+                                        <div id="xhsImagePlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 transition-opacity duration-300">
+                                            <i data-lucide="image" class="w-8 h-8 mb-2 opacity-50"></i>
+                                            <span class="text-xs">AI 配图生成区</span>
+                                        </div>
+                                        <div id="xhsImageContent" class="absolute inset-0 flex flex-col items-center justify-center opacity-0 transition-opacity duration-700 p-4 text-center">
+                                            <div class="text-6xl mb-4 drop-shadow-sm transition-transform duration-300 group-hover:scale-110" id="previewIcon">🤔</div>
+                                            <h2 id="previewTitle" class="text-xl font-black text-slate-800 bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100">
+                                                热点分析中...
+                                            </h2>
+                                            <div class="absolute bottom-4 right-4 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                                点击切换风格 <i data-lucide="refresh-ccw" class="w-3 h-3 inline"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-4 bg-white flex-1 flex flex-col overflow-hidden">
+                                        <h4 id="previewCaptionTitle" class="font-bold text-sm text-slate-900 mb-2 truncate">标题生成中...</h4>
+                                        <div id="xhsTextContent" class="text-xs text-slate-600 space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                                            <div class="h-2 bg-slate-100 rounded w-full animate-pulse"></div>
+                                            <div class="h-2 bg-slate-100 rounded w-5/6 animate-pulse"></div>
+                                            <div class="h-2 bg-slate-100 rounded w-4/6 animate-pulse"></div>
+                                        </div>
+                                        <div class="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between text-slate-400 text-[10px]">
+                                            <div class="flex gap-2">
+                                                <span><i data-lucide="heart" class="w-3 h-3 inline"></i> 1.2w</span>
+                                                <span><i data-lucide="star" class="w-3 h-3 inline"></i> 5k</span>
+                                            </div>
+                                            <span><i data-lucide="message-circle" class="w-3 h-3 inline"></i> 892</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Copywriting Section -->
+                <div class="flex flex-col gap-2">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 px-1">
+                        <i data-lucide="pen-tool" class="w-5 h-5 text-emerald-600"></i> 文案生成 (Copywriting)
+                    </h2>
+                    <div class="glass-card rounded-xl p-6 shadow-lg border-t-4 border-t-emerald-500">
+                        <div id="copywritingStatus" class="hidden items-center gap-2 mb-4 text-sm font-bold text-emerald-600 animate-pulse">
+                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 正在后台处理信息，生成最终文案...
+                        </div>
+                        
+                        <div class="relative">
+                            <textarea id="finalCopyOutput" readonly class="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-mono resize-none focus:outline-none focus:border-blue-500 transition-colors" placeholder="等待辩论结束后，在此生成可直接发布的文案..."></textarea>
+                            <button id="copyBtn" onclick="copyToClipboard()" disabled class="absolute top-3 right-3 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i data-lucide="copy" class="w-3 h-3"></i> 复制全文
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+
+        <!-- DATA VIEW: REVAMPED FOR XIAOHONGSHU -->
+        <div id="view-data" class="view-section hidden animate-fade-in py-12 px-4">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-slate-900 mb-2">多维数据洞察</h2>
+                    <p class="text-slate-500">生成式数据可视化卡片 (Generative Data Cards)</p>
+                </div>
+
+                <div class="relative grid lg:grid-cols-12 gap-8 items-start">
+                    
+                    <div id="dataLockOverlay" class="absolute inset-0 z-20 rounded-3xl locked-overlay flex flex-col items-center justify-center text-center p-8">
+                        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                            <i data-lucide="lock" class="w-8 h-8 text-slate-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-700 mb-2">数据尚未生成</h3>
+                        <p class="text-slate-500 max-w-md">请先在「舆情推演」页面启动分析，系统将基于辩论结果自动生成“中外舆论对比”等数据。</p>
+                        <button onclick="switchTab('home')" class="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                            前往推演
+                        </button>
+                    </div>
+
+                    <!-- Left: Control Panel -->
+                    <div class="lg:col-span-4 space-y-6 filter blur-sm transition-all duration-500" id="dataControlsArea">
+                        
+                        <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i data-lucide="layout-grid" class="w-5 h-5 text-blue-600"></i> 图表数据选择
+                            </h3>
+                            <div class="space-y-3">
+                                <button onclick="updatePosterData(this, 'contrast')" class="data-btn w-full text-left px-4 py-3 rounded-xl bg-white text-slate-600 border border-slate-200 font-medium hover:bg-slate-50 transition-colors flex justify-between items-center group btn-selected shadow-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                            <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-slate-800">中外舆论温差</div>
+                                            <div class="text-[10px] text-slate-400">Domestic vs Intl Sentiment</div>
+                                        </div>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="w-4 h-4 opacity-50 group-hover:opacity-100"></i>
+                                </button>
+
+                                <button onclick="updatePosterData(this, 'sentiment')" class="data-btn w-full text-left px-4 py-3 rounded-xl bg-white text-slate-600 border border-slate-200 font-medium hover:bg-slate-50 transition-colors flex justify-between items-center group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                                            <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-slate-800">网民情感光谱</div>
+                                            <div class="text-[10px] text-slate-400">Emotional Spectrum</div>
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <button onclick="updatePosterData(this, 'keywords')" class="data-btn w-full text-left px-4 py-3 rounded-xl bg-white text-slate-600 border border-slate-200 font-medium hover:bg-slate-50 transition-colors flex justify-between items-center group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                            <i data-lucide="cloud" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-slate-800">高频关键词云</div>
+                                            <div class="text-[10px] text-slate-400">Keyword Frequency</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i data-lucide="edit-3" class="w-5 h-5 text-slate-600"></i> 卡片文本编辑
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">主标题 (Main Title)</label>
+                                    <input type="text" id="posterTitleInput" value="中外舆论温差" oninput="updatePosterText()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 outline-none font-bold text-slate-700">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">副标题 (Subtitle)</label>
+                                    <input type="text" id="posterSubTitleInput" value="GrandChart 独家数据洞察" oninput="updatePosterText()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 outline-none text-slate-600">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i data-lucide="palette" class="w-5 h-5 text-pink-500"></i> 风格配色
+                            </h3>
+                            <div class="grid grid-cols-5 gap-2">
+                                <div onclick="setPosterTheme('white', this)" class="theme-btn active w-full aspect-square rounded-full bg-slate-50 border border-slate-200 cursor-pointer shadow-sm" title="简约白"></div>
+                                <div onclick="setPosterTheme('cream', this)" class="theme-btn w-full aspect-square rounded-full bg-[#FFF8E7] border border-orange-100 cursor-pointer shadow-sm" title="奶油黄"></div>
+                                <div onclick="setPosterTheme('blue', this)" class="theme-btn w-full aspect-square rounded-full bg-blue-50 border border-blue-200 cursor-pointer shadow-sm" title="科技蓝"></div>
+                                <div onclick="setPosterTheme('pink', this)" class="theme-btn w-full aspect-square rounded-full bg-pink-50 border border-pink-200 cursor-pointer shadow-sm" title="少女粉"></div>
+                                <div onclick="setPosterTheme('dark', this)" class="theme-btn w-full aspect-square rounded-full bg-slate-800 border border-slate-600 cursor-pointer shadow-sm" title="暗黑风"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Preview & Export -->
+                    <div class="lg:col-span-8 flex flex-col gap-6 filter blur-sm transition-all duration-500" id="posterPreviewArea">
+                        <div class="flex justify-center bg-slate-100 rounded-3xl p-8 border border-slate-200 relative overflow-hidden">
+                            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                            
+                            <!-- The Canvas (3:4 Ratio) -->
+                            <div class="relative w-full max-w-[480px] poster-container bg-white rounded-xl overflow-hidden shadow-2xl transform transition hover:scale-[1.01] duration-300">
+                                <canvas id="posterCanvas" class="w-full h-full"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <button onclick="downloadPoster()" class="px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold shadow-xl shadow-slate-300 transition-all flex items-center gap-3 transform hover:-translate-y-1">
+                                <i data-lucide="download" class="w-5 h-5"></i> 导出小红书配图 (HD)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Arch View (Restored Content) -->
+        <div id="view-arch" class="view-section hidden animate-fade-in py-12 px-4">
+             <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-slate-900 mb-4">系统技术架构</h2>
+                    <p class="text-slate-500">基于多智能体（Multi-Agent）协作的端到端生成流水线</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 md:p-12">
+                    <div class="grid md:grid-cols-3 gap-8">
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                                    <i data-lucide="satellite" class="w-6 h-6"></i>
+                                </div>
+                                <h3 class="font-bold text-lg text-slate-800">1. 感知层 (Sensing)</h3>
+                            </div>
+                            <p class="text-sm text-slate-500 mb-2">分布式全网数据聚合</p>
+                            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm space-y-3 text-slate-600">
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>爬虫集群:</strong> Selenium + Scrapy 处理动态网页，实时抓取微博/Twitter数据。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>数据清洗:</strong> NLP 去重与情感预标记，剔除无效噪点。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>存储:</strong> Elasticsearch 异构数据库，支持毫秒级检索。</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 relative">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+                                    <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+                                </div>
+                                <h3 class="font-bold text-lg text-slate-800">2. 协作层 (Core)</h3>
+                            </div>
+                            <p class="text-sm text-slate-500 mb-2">LLM 智能体编排中心</p>
+                            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm space-y-3 text-slate-600">
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>Moderator:</strong> 辩论流程控制与防死循环机制。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>Debater:</strong> 模拟正反方多视角，进行事实核查与观点碰撞。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>CoStrict:</strong> 思维链(CoT)逻辑修正，减少幻觉。</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
+                                    <i data-lucide="layout" class="w-6 h-6"></i>
+                                </div>
+                                <h3 class="font-bold text-lg text-slate-800">3. 交互层 (Interaction)</h3>
+                            </div>
+                            <p class="text-sm text-slate-500 mb-2">可视化与内容生成</p>
+                            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm space-y-3 text-slate-600">
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>后端:</strong> Python FastAPI + WebSocket 实现流式传输。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>前端:</strong> Vue.js + ECharts + Tailwind 构建响应式界面。</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <span><strong>输出:</strong> 小红书/抖音风格爆款文案一键生成。</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vision View (Restored Content) -->
+        <div id="view-vision" class="view-section hidden animate-fade-in py-12 px-4">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl font-bold text-slate-900 mb-4">愿景与长期价值</h2>
+                    <p class="text-slate-500 max-w-2xl mx-auto">打破单一模型局限，构建跨语言、跨文化的事实核查与内容生产新范式。</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl border border-blue-100 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                        <div class="relative z-10">
+                            <div class="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center mb-6">
+                                <i data-lucide="flag" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-slate-900 mb-4">MVP 阶段目标</h3>
+                            <ul class="space-y-4 text-slate-600">
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">全链路跑通</span>
+                                        <p class="text-sm">实现微博与外媒（如CNN）对同一热点的自动聚合与对齐。</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">可视化交互</span>
+                                        <p class="text-sm">前端直观展示“AI辩论团”寻找事实冲突的思考过程。</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">生产力落地</span>
+                                        <p class="text-sm">实现“小红书”风格文案的一键生成，风格符合度达 90%。</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-purple-50 to-white p-8 rounded-2xl border border-purple-100 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-bl-full opacity-50 transition-transform group-hover:scale-110"></div>
+                        <div class="relative z-10">
+                            <div class="w-10 h-10 bg-purple-600 text-white rounded-lg flex items-center justify-center mb-6">
+                                <i data-lucide="telescope" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-slate-900 mb-4">长期战略展望</h3>
+                            <ul class="space-y-4 text-slate-600">
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="arrow-right-circle" class="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">SaaS 创作工具</span>
+                                        <p class="text-sm">面向自媒体创作者，大幅提升热点追踪与内容生产效率。</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="arrow-right-circle" class="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">跨文化事实核查</span>
+                                        <p class="text-sm">构建开放平台，通过 AI 对抗虚假新闻，打破全球信息壁垒。</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <i data-lucide="arrow-right-circle" class="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold text-slate-800">API 生态开放</span>
+                                        <p class="text-sm">赋能第三方应用接入 GrandChart 的舆情分析能力。</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="view-settings" class="view-section hidden animate-fade-in py-12 px-4">
+            <div class="max-w-3xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2 justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="server" class="w-5 h-5 text-blue-600"></i>
+                            <h2 class="font-bold text-slate-800">API 接口配置</h2>
+                        </div>
+                        <span class="text-xs text-slate-400">已配置 <span id="activeApiCount">0</span> 个模型</span>
+                    </div>
+                    <div class="p-6 md:p-8 space-y-8">
+                        <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                             <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                    <i data-lucide="plus-circle" class="w-4 h-4"></i> 配置新模型
+                                </h3>
+                                <button onclick="openEditModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                                    <i data-lucide="plus" class="w-3 h-3"></i> 添加 API
+                                </button>
+                            </div>
+                            <div id="apiListContainer" class="space-y-3"></div>
+                            <div id="emptyApiState" class="text-center py-8 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-xs hidden">
+                                暂无配置的 API 接口，系统无法运行。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for API Editing (Fixed Center) -->
+    <div id="apiModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 modal-overlay" onclick="closeEditModal()"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in z-10">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2" id="modalTitle">
+                    <i data-lucide="settings-2" class="w-4 h-4"></i> 配置模型
+                </h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">选择模型厂商</label>
+                    <select id="apiProviderSelect" onchange="updateBaseUrl()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+                        <option value="gemini">Gemini (Google)</option>
+                        <option value="deepseek">Deepseek (深度求索)</option>
+                        <option value="doubao">Doubao (字节豆包)</option>
+                        <option value="kimi">Kimi (月之暗面)</option>
+                        <option value="zhipu">Zhipu AI (智谱清言)</option>
+                        <option value="qwen">Qwen (通义千问)</option>
+                        <option value="custom">自定义 / OpenAI Compatible</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">API Base URL</label>
+                    <input type="text" id="apiBaseUrl" placeholder="https://api.example.com/v1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 font-mono text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">API Key</label>
+                    <input type="password" id="newApiKey" placeholder="sk-..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">模型代号 (Model ID)</label>
+                    <div class="relative">
+                        <input type="text" id="modelIdInput" list="modelOptions" placeholder="选择或手动输入模型ID" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 font-mono">
+                        <datalist id="modelOptions"></datalist>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
+                <button onclick="closeEditModal()" class="px-4 py-2 text-slate-500 text-xs font-bold hover:bg-slate-200 rounded-lg transition-colors">取消</button>
+                <button onclick="saveApi()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                    <i data-lucide="save" class="w-4 h-4"></i> 保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Vars ---
+        let currentPhoneStyleIndex = 0;
+        const phoneStyles = [
+            { bg: 'bg-gradient-to-br from-indigo-50 to-pink-50', icon: '🤔', textColor: 'text-slate-800' },
+            { bg: 'bg-slate-900', icon: '😱', textColor: 'text-white' },
+            { bg: 'bg-red-50', icon: '🔥', textColor: 'text-red-900' },
+            { bg: 'bg-emerald-50', icon: '🥗', textColor: 'text-emerald-900' }
+        ];
+        
+        let posterChart = null;
+        let posterTheme = 'white';
+        let posterDataType = 'contrast'; // Default to useful contrast
+        
+        // Data State (Pre-filled with samples, updated by AI)
+        let contrastData = { domestic: [65, 20, 15], intl: [30, 40, 30] }; 
+        
+        // --- API & Debate Vars ---
+        let debateController = new AbortController();
+        let isDebating = false;
+        let editingApiId = null; 
+        let userApis = [];
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            refreshTrending(); 
+            initPosterChart(); // Init chart
+            updateBaseUrl(); 
+            loadApiSettings();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active', 'text-blue-600', 'bg-blue-50'));
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if(activeBtn) activeBtn.classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // --- Improved Poster Themes (XHS Style) ---
+        const POSTER_THEMES = { 
+            white: { bgStart:'#ffffff', bgEnd:'#f8fafc', text:'#334155', accent: '#3b82f6', grid: 'rgba(0,0,0,0.05)', colors: ['#3b82f6','#60a5fa'] },
+            cream: { bgStart: '#fffbeb', bgEnd: '#fff7ed', text: '#78350f', accent: '#f59e0b', grid: 'rgba(120, 53, 15, 0.05)', colors: ['#f59e0b', '#fbbf24'] },
+            blue: { bgStart: '#eff6ff', bgEnd: '#dbeafe', text: '#1e3a8a', accent: '#2563eb', grid: 'rgba(30, 58, 138, 0.05)', colors: ['#2563eb', '#60a5fa'] },
+            pink: { bgStart: '#fff1f2', bgEnd: '#ffe4e6', text: '#881337', accent: '#e11d48', grid: 'rgba(136, 19, 55, 0.05)', colors: ['#e11d48', '#fb7185'] },
+            dark: { bgStart: '#1e293b', bgEnd: '#0f172a', text: '#f8fafc', accent: '#818cf8', grid: 'rgba(255,255,255,0.1)', colors: ['#818cf8', '#a5b4fc'] }
+        }; 
+
+        function initPosterChart() {
+            const ctx = document.getElementById('posterCanvas').getContext('2d');
+            
+            // Custom Plugin for "XHS Card Look"
+            const posterPlugin = {
+                id: 'posterBackground',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const width = chart.width;
+                    const height = chart.height;
+                    const theme = POSTER_THEMES[posterTheme];
+
+                    // 1. Background
+                    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                    gradient.addColorStop(0, theme.bgStart);
+                    gradient.addColorStop(1, theme.bgEnd);
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, width, height);
+
+                    // 2. Decorative Circles (Top Right)
+                    ctx.beginPath();
+                    ctx.arc(width, 0, 150, 0, 2 * Math.PI);
+                    ctx.fillStyle = theme.accent;
+                    ctx.globalAlpha = 0.05;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+
+                    // 3. Title & Subtitle
+                    ctx.save();
+                    ctx.fillStyle = theme.text;
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    
+                    // Main Title
+                    ctx.font = '900 36px "Noto Sans SC"';
+                    const title = document.getElementById('posterTitleInput').value;
+                    ctx.fillText(title, 40, 60);
+                    
+                    // Decor Line
+                    ctx.fillStyle = theme.accent;
+                    ctx.fillRect(40, 110, 60, 6);
+
+                    // Subtitle
+                    ctx.fillStyle = theme.text;
+                    ctx.globalAlpha = 0.7;
+                    ctx.font = 'bold 18px "Noto Sans SC"';
+                    const sub = document.getElementById('posterSubTitleInput').value;
+                    ctx.fillText(sub, 40, 130);
+                    ctx.restore();
+
+                    // 4. Footer Branding
+                    ctx.save();
+                    ctx.fillStyle = theme.text;
+                    ctx.globalAlpha = 0.4;
+                    ctx.font = '12px "Noto Sans SC"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("@观潮GrandChart · AI舆情洞察", width/2, height - 30);
+                    ctx.restore();
+                }
+            };
+
+            posterChart = new Chart(ctx, {
+                type: 'bar',
+                data: getContrastDataForPoster(),
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 180, bottom: 60, left: 30, right: 30 } },
+                    plugins: {
+                        legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } }
+                    }
+                },
+                plugins: [posterPlugin]
+            });
+        }
+
+        // Data Providers
+        function getContrastDataForPoster() {
+            const theme = POSTER_THEMES[posterTheme];
+            return {
+                labels: ['支持/正面', '中立/客观', '反对/负面'],
+                datasets: [
+                    { label: '国内舆论', data: contrastData.domestic, backgroundColor: theme.colors[0], borderRadius: 8, barPercentage: 0.6 },
+                    { label: '国际舆论', data: contrastData.intl, backgroundColor: theme.text, opacity: 0.3, borderRadius: 8, barPercentage: 0.6, backgroundColor: '#94a3b8' }
+                ]
+            };
+        }
+        function getSentimentData() {
+            const theme = POSTER_THEMES[posterTheme];
+            return {
+                labels: ['愤怒', '嘲讽', '失望', '中立'],
+                datasets: [{ data: [55, 25, 12, 8], backgroundColor: [theme.accent, '#f87171', '#fbbf24', '#cbd5e1'], borderWidth: 0 }]
+            };
+        }
+        function getKeywordsData() {
+             const theme = POSTER_THEMES[posterTheme];
+             return {
+                labels: ['真相', '反转', '烂尾', '公信力', '甚至'],
+                datasets: [{ label: '热度', data: [1200, 950, 800, 600, 500], backgroundColor: theme.accent, borderRadius: 6 }]
+            };
+        }
+
+        function updatePosterText() { posterChart.update(); }
+        
+        function updatePosterData(btn, type) {
+            posterDataType = type;
+            if(btn) { document.querySelectorAll('.data-btn').forEach(b => b.classList.remove('btn-selected', 'shadow-sm')); btn.classList.add('btn-selected', 'shadow-sm'); }
+            
+            const theme = POSTER_THEMES[posterTheme];
+            posterChart.options.scales = {};
+            posterChart.options.plugins.legend.display = true;
+            posterChart.options.plugins.legend.labels.color = theme.text;
+
+            // Reset Input Titles based on type
+            const titleInput = document.getElementById('posterTitleInput');
+            const subInput = document.getElementById('posterSubTitleInput');
+
+            if (type === 'contrast') {
+                posterChart.config.type = 'bar';
+                posterChart.data = getContrastDataForPoster();
+                posterChart.options.indexAxis = 'x';
+                posterChart.options.scales = { y: { grid: { color: theme.grid }, border: { display: false } }, x: { grid: { display: false } } };
+                titleInput.value = "中外舆论温差";
+                subInput.value = "GrandChart · 舆情全域扫描";
+            }
+            else if (type === 'sentiment') { 
+                posterChart.config.type = 'doughnut'; 
+                posterChart.data = getSentimentData(); 
+                posterChart.options.scales = { x: { display: false }, y: { display: false } };
+                titleInput.value = "网民情感光谱";
+                subInput.value = "GrandChart · 情绪极化分析";
+            }
+            else if (type === 'keywords') { 
+                posterChart.config.type = 'bar'; 
+                posterChart.data = getKeywordsData(); 
+                posterChart.options.indexAxis = 'y'; 
+                posterChart.options.scales = { x: { display: false }, y: { display: false } };
+                titleInput.value = "核心关键词云";
+                subInput.value = "GrandChart · 高频词汇捕捉";
+            }
+            posterChart.update();
+        }
+
+        function setPosterTheme(theme, btn) {
+            posterTheme = theme;
+            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            updatePosterData(null, posterDataType); 
+        }
+
+        function downloadPoster() {
+            const link = document.createElement('a');
+            link.download = `GrandChart_Post_${Date.now()}.png`;
+            link.href = document.getElementById('posterCanvas').toDataURL('image/png', 2.0); // HD Export
+            link.click();
+        }
+
+        // --- Core Logic (Optimized Analyst Prompt) ---
+        
+        async function runDebateFlow(topic) {
+            try {
+                let rounds = parseInt(document.getElementById('debateRounds').value) || 1;
+                rounds = Math.max(1, Math.min(5, rounds)); 
+
+                let fullDebateContext = `议题：${topic}\n`;
+
+                // 1. Moderator
+                addDebateBubble('moderator', 'Moderator', 'shield', 'border-yellow-200 bg-yellow-50', `启动议题扫描：**${topic}**...`);
+                const modPrompt = `你是辩论主持人。话题"${topic}"。请简要指出舆论场可能存在的2个主要矛盾点。`;
+                const modRes = await callLLM(modPrompt, "user", 0);
+                addDebateBubble('moderator', 'Moderator', 'shield', 'border-yellow-200 bg-yellow-50', modRes);
+                fullDebateContext += `主持人：${modRes.text}\n`;
+
+                // Debate Loop
+                let prevArg = ""; 
+                for (let i = 0; i < rounds; i++) {
+                    addDebateBubble('system', 'System', 'loader', 'border-slate-100 bg-slate-50', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
+                    const proPrompt = i === 0 ? `正方观点：话题"${topic}"。基于矛盾点，犀利地提出你的核心立场。` : `正方观点：反驳"${prevArg}"。坚持立场。`;
+                    const proRes = await callLLM(proPrompt, "user", 1);
+                    document.getElementById('debateContainer').lastElementChild.remove(); 
+                    addDebateBubble('pro', `Pro (R${i+1})`, 'thumbs-up', 'border-blue-200 bg-blue-50', proRes);
+                    prevArg = proRes.text;
+                    fullDebateContext += `正方(R${i+1})：${proRes.text}\n`;
+
+                    addDebateBubble('system', 'System', 'loader', 'border-slate-100 bg-slate-50', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
+                    const conPrompt = `反方观点：反驳正方"${prevArg}"。指出逻辑漏洞。`;
+                    const conRes = await callLLM(conPrompt, "user", 2);
+                    document.getElementById('debateContainer').lastElementChild.remove();
+                    addDebateBubble('con', `Con (R${i+1})`, 'thumbs-down', 'border-red-200 bg-red-50', conRes);
+                    prevArg = conRes.text;
+                    fullDebateContext += `反方(R${i+1})：${conRes.text}\n`;
+                }
+
+                // 4. Analyst (Optimized Prompt)
+                addDebateBubble('system', 'System', 'loader', 'border-slate-100 bg-slate-50', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
+                
+                // --- KEY PROMPT FIX HERE ---
+                const anaPrompt = `
+                ROLE: 你是观潮(GrandChart)的首席舆情分析师，也是一位洞察力极强的社会心理学家。
+                TASK: 阅读下方的辩论记录，不要只是总结观点。你需要开启“上帝视角”，进行降维打击式的分析。
+                
+                CONTEXT:
+                ${fullDebateContext}
+
+                REQUIREMENTS:
+                1. 事实核查：如果双方有明显的逻辑谬误或情绪煽动，请无情指出。
+                2. 深度洞察(Insight)：跳出表面争吵，一针见血地指出该事件背后反映了什么样的社会焦虑、群体心理或结构性矛盾。说真话，别说官话套话。
+                3. 数据海报文案：为一张分析图表起一个极具吸引力、类似小红书爆款风格的短标题。
+
+                OUTPUT FORMAT (Strictly):
+                INSIGHT: [100字左右的深度洞察，犀利、客观、有见地]
+                TITLE: [4-8字的吸睛主标题]
+                SUB: [8-12字的补充副标题]
+                `;
+
+                const anaRes = await callLLM(anaPrompt, "user", 3);
+                document.getElementById('debateContainer').lastElementChild.remove();
+                addDebateBubble('analyst', 'Analyst', 'glasses', 'border-purple-200 bg-purple-50', anaRes);
+                
+                // Parsing Logic
+                let insightText = anaRes.text;
+                let mainTitle = "GrandChart";
+                let subTitle = "全网舆情深度洞察";
+
+                if (anaRes.text.includes("INSIGHT:")) {
+                    const parts = anaRes.text.split("INSIGHT:");
+                    if(parts[1]) insightText = parts[1].split("TITLE:")[0].trim();
+                }
+                if (anaRes.text.includes("TITLE:")) {
+                    const parts = anaRes.text.split("TITLE:");
+                    if(parts[1]) mainTitle = parts[1].split("SUB:")[0].trim();
+                }
+                if (anaRes.text.includes("SUB:")) {
+                    const parts = anaRes.text.split("SUB:");
+                    if(parts[1]) subTitle = parts[1].trim();
+                }
+
+                // Update UI
+                document.getElementById('insightContent').innerHTML = `
+                    <div class="animate-fade-in p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-100 text-slate-700 shadow-sm h-full overflow-y-auto">
+                        <strong class="text-orange-600 block mb-2 flex items-center gap-1 text-sm uppercase tracking-wider"><i data-lucide="zap" class="w-4 h-4"></i> Grand Insight</strong> 
+                        <p class="text-sm leading-relaxed">${insightText}</p>
+                    </div>
+                `;
+                
+                // Update Poster Texts
+                document.getElementById('posterTitleInput').value = mainTitle;
+                document.getElementById('posterSubTitleInput').value = subTitle;
+                updatePosterText(); 
+
+                // 5. Data Generation (Domestic vs Intl)
+                const dataPrompt = `你是一个数据专家。基于话题"${topic}"和上述洞察，模拟生成“国内(Domestic)”与“国际(International)”的舆论情感分布数据。
+                请直接返回JSON格式：{"domestic": [支持%, 中立%, 反对%], "intl": [支持%, 中立%, 反对%]}
+                例如：{"domestic": [60, 20, 20], "intl": [30, 40, 30]}
+                注意：三个数之和必须约等于100。只输出JSON。`;
+                
+                const dataResRaw = await callLLM(dataPrompt, "user", 0);
+                try {
+                    const jsonMatch = dataResRaw.text.match(/\{[\s\S]*\}/);
+                    if(jsonMatch) {
+                        contrastData = JSON.parse(jsonMatch[0]);
+                        // Switch chart to contrast mode to show new data
+                        updatePosterData(document.querySelector('.data-btn'), 'contrast');
+                    }
+                } catch(e) { console.log("Data gen failed", e); }
+
+                // 6. XHS Copywriting (Keep existing logic)
+                const copyPrompt = `你是一个小红书爆款文案专家。基于话题"${topic}"和洞察"${insightText}"，写一篇笔记。
+                要求：标题带Emoji，正文分段口语化，文末加Tags。
+                格式：TITLE: [标题] CONTENT: [正文]`;
+                const copyRes = await callLLM(copyPrompt, "user", 1); 
+                
+                let xhsTitle = "热点追踪";
+                let xhsContent = copyRes.text;
+                if(copyRes.text.includes("TITLE:")) {
+                    const parts = copyRes.text.split("CONTENT:");
+                    xhsTitle = parts[0].replace("TITLE:", "").trim();
+                    xhsContent = parts[1] ? parts[1].trim() : "";
+                }
+
+                // Update Preview
+                document.getElementById('xhsImageContent').classList.remove('opacity-0');
+                document.getElementById('xhsImageContent').classList.add('opacity-100');
+                document.getElementById('xhsImagePlaceholder').style.display = 'none';
+                document.getElementById('previewTitle').innerText = xhsTitle.substring(0, 15);
+                document.getElementById('previewCaptionTitle').innerText = xhsTitle;
+                document.getElementById('xhsTextContent').innerHTML = xhsContent.replace(/\n/g, '<br>');
+                document.getElementById('finalCopyOutput').value = `${xhsTitle}\n\n${xhsContent}`;
+                document.getElementById('copyBtn').disabled = false;
+
+                // Unlock
+                document.getElementById('dataLockOverlay').classList.add('hidden');
+                document.getElementById('dataControlsArea').classList.remove('filter', 'blur-sm');
+                document.getElementById('posterPreviewArea').classList.remove('filter', 'blur-sm');
+                
+                resetUI();
+                lucide.createIcons();
+
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                alert('API Error: ' + err.message);
+                resetUI();
+            }
+        }
+
+        // --- Common Helpers ---
+        function refreshTrending() {
+            const today = new Date();
+            document.getElementById('trendingDate').innerText = `${today.getMonth()+1}月${today.getDate()}日`;
+            const topics = ['OpenAI Sora 2.0 发布', '国内油价调整', '高考分数线公布', '星舰第五次发射', 'DeepSeek V3 开源', '新能源车降价潮'];
+            const randomTopics = topics.sort(() => 0.5 - Math.random()).slice(0, 3);
+            document.getElementById('trendingTopicsContainer').innerHTML = randomTopics.map(t => 
+                `<button onclick="document.getElementById('topicInput').value='${t}'" class="px-3 py-1 bg-white border border-slate-200 rounded-full hover:border-blue-300 hover:text-blue-600 transition-colors animate-fade-in text-xs whitespace-nowrap">${t}</button>`
+            ).join('');
+        }
+
+        function switchPhoneImage() {
+            currentPhoneStyleIndex = (currentPhoneStyleIndex + 1) % phoneStyles.length;
+            const style = phoneStyles[currentPhoneStyleIndex];
+            const bgDiv = document.getElementById('phoneImageBg');
+            const icon = document.getElementById('previewIcon');
+            const title = document.getElementById('previewTitle');
+            
+            bgDiv.className = ""; void bgDiv.offsetWidth; 
+            bgDiv.className = `aspect-[3/4] relative overflow-hidden flex-shrink-0 transition-colors duration-500 ${style.bg}`;
+            
+            if(icon && title) {
+                icon.innerText = style.icon;
+                title.className = `text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-white/20 ${style.textColor}`;
+            }
+        }
+
+        // --- API Helpers (Previous Logic) ---
+        const apiProviders = {
+            'deepseek': 'https://api.deepseek.com',
+            'gemini': 'https://generativelanguage.googleapis.com/v1beta/models',
+            'doubao': 'https://ark.cn-beijing.volces.com/api/v3',
+            'kimi': 'https://api.moonshot.cn/v1',
+            'zhipu': 'https://open.bigmodel.cn/api/paas/v4',
+            'qwen': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+            'custom': ''
+        };
+        const modelPresets = {
+            'deepseek': ['deepseek-chat', 'deepseek-reasoner'],
+            'gemini': ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3-pro-preview', 'gemini-3-flash-preview'],
+            'doubao': ['doubao-pro-32k', 'doubao-lite-4k'],
+            'kimi': ['moonshot-v1-8k', 'moonshot-v1-32k'],
+            'zhipu': ['glm-4', 'glm-4-air', 'glm-4-flash'],
+            'qwen': ['qwen-turbo', 'qwen-plus'],
+            'custom': []
+        };
+
+        function updateBaseUrl() {
+            const val = document.getElementById('apiProviderSelect').value;
+            document.getElementById('apiBaseUrl').value = apiProviders[val] || '';
+            const dataList = document.getElementById('modelOptions');
+            dataList.innerHTML = '';
+            (modelPresets[val] || []).forEach(m => {
+                const opt = document.createElement('option'); opt.value = m; dataList.appendChild(opt);
+            });
+        }
+
+        function loadApiSettings() {
+            const saved = localStorage.getItem('grandchart_user_apis_v2');
+            if (saved) try { userApis = JSON.parse(saved); } catch(e) {}
+            renderApiList();
+            if(userApis.length > 0) document.getElementById('apiBadge').classList.remove('hidden');
+        }
+
+        function saveApiSettings() { localStorage.setItem('grandchart_user_apis_v2', JSON.stringify(userApis)); }
+
+        function openEditModal(id=null) {
+            document.getElementById('apiModal').classList.remove('hidden');
+            if (id) {
+                const api = userApis.find(a => a.id === id);
+                if(api) {
+                    editingApiId = id;
+                    document.getElementById('modalTitle').innerHTML = `<i data-lucide="edit-2" class="w-4 h-4"></i> 编辑模型配置`;
+                    document.getElementById('apiProviderSelect').value = api.providerKey || 'custom';
+                    document.getElementById('apiBaseUrl').value = api.url;
+                    document.getElementById('newApiKey').value = api.key;
+                    document.getElementById('modelIdInput').value = api.model;
+                    updateBaseUrl();
+                    document.getElementById('modelIdInput').value = api.model; 
+                }
+            } else {
+                editingApiId = null;
+                document.getElementById('modalTitle').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> 配置新模型`;
+                document.getElementById('newApiKey').value = '';
+                document.getElementById('modelIdInput').value = '';
+                updateBaseUrl();
+            }
+            lucide.createIcons();
+        }
+        function closeEditModal() { document.getElementById('apiModal').classList.add('hidden'); }
+        
+        function saveApi() {
+            const provider = document.getElementById('apiProviderSelect').options[document.getElementById('apiProviderSelect').selectedIndex].text;
+            const providerKey = document.getElementById('apiProviderSelect').value;
+            const url = document.getElementById('apiBaseUrl').value;
+            const key = document.getElementById('newApiKey').value;
+            const model = document.getElementById('modelIdInput').value || 'default';
+            if (!url || !key) return alert('请填写完整信息');
+            if (editingApiId) {
+                const index = userApis.findIndex(a => a.id === editingApiId);
+                if(index !== -1) userApis[index] = { ...userApis[index], provider, providerKey, url, key, model };
+            } else {
+                userApis.push({ id: Date.now(), provider, providerKey, url, key, model, active: true });
+            }
+            saveApiSettings(); renderApiList(); closeEditModal();
+            document.getElementById('apiBadge').classList.remove('hidden');
+        }
+
+        function removeApi(id) {
+            if(!confirm('确定删除?')) return;
+            userApis = userApis.filter(a => a.id !== id);
+            saveApiSettings(); renderApiList();
+        }
+
+        function renderApiList() {
+            const container = document.getElementById('apiListContainer');
+            document.getElementById('activeApiCount').innerText = userApis.length;
+            container.innerHTML = '';
+            document.getElementById('emptyApiState').style.display = userApis.length === 0 ? 'block' : 'none';
+            
+            userApis.forEach(api => {
+                const div = document.createElement('div');
+                div.className = `bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex justify-between items-center animate-fade-in`;
+                div.innerHTML = `
+                    <div class="flex gap-3 items-center overflow-hidden">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">${api.provider.substring(0,2).toUpperCase()}</div>
+                        <div class="min-w-0">
+                            <h4 class="font-bold text-sm truncate text-slate-800">${api.provider} <span class="text-xs font-normal bg-slate-100 px-1 rounded text-slate-500">${api.model}</span></h4>
+                            <p class="text-xs text-slate-400 truncate font-mono">...${api.key.substring(Math.max(0, api.key.length - 4))}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button onclick="openEditModal(${api.id})" class="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-50 rounded transition-colors"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                        <button onclick="removeApi(${api.id})" class="p-1.5 text-slate-400 hover:text-red-500 bg-slate-50 rounded transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        async function callLLM(prompt, role = "user", apiIndex = 0) {
+            if (userApis.length === 0) throw new Error("No API Configured");
+            const api = userApis[apiIndex % userApis.length];
+            document.getElementById('activeModelDisplay').innerText = `Thinking: ${api.provider.split(' ')[0]} (${api.model})`;
+
+            try {
+                let responseText = "";
+                if (api.providerKey === 'gemini') {
+                    const response = await fetch(`${api.url}/${api.model}:generateContent?key=${api.key}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }), signal: debateController.signal
+                    });
+                    const data = await response.json();
+                    if(data.error) throw new Error(data.error.message);
+                    responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+                } else {
+                    const response = await fetch(`${api.url}/chat/completions`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.key}` },
+                        body: JSON.stringify({ model: api.model, messages: [{ role: role, content: prompt }] }), signal: debateController.signal
+                    });
+                    const data = await response.json();
+                    if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+                    responseText = data.choices?.[0]?.message?.content || "No response";
+                }
+                document.getElementById('activeModelDisplay').innerText = "";
+                return { text: responseText, model: api.model };
+            } catch (error) {
+                document.getElementById('activeModelDisplay').innerText = "Error";
+                throw error;
+            }
+        }
+
+        function handleStartClick() {
+            const inputVal = document.getElementById('topicInput').value;
+            if(!inputVal.trim()) return alert('请输入议题！');
+            if (userApis.length === 0) { alert('请先配置 API Key'); switchTab('settings'); return; }
+            if(isDebating) { debateController.abort(); debateController = new AbortController(); resetUI(); return; }
+            startUI();
+            runDebateFlow(inputVal);
+        }
+
+        function startUI() {
+            isDebating = true;
+            const btn = document.getElementById('mainStartBtn');
+            btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 fill-current"></i> 停止分析`;
+            btn.classList.replace('bg-blue-600', 'bg-red-600');
+            btn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+            document.getElementById('simControls').classList.remove('hidden');
+            document.getElementById('debateContainer').innerHTML = ''; 
+            document.getElementById('insightContent').innerHTML = `<div class="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 italic text-xs">AI 辩论团正在思考中...</div>`;
+            document.getElementById('copywritingStatus').classList.remove('hidden');
+            document.getElementById('copywritingStatus').classList.add('flex');
+            document.getElementById('finalCopyOutput').value = "正在进行多智能体辩论与数据分析...";
+            // Show lock overlay for Data tab until finished
+            document.getElementById('dataLockOverlay').classList.remove('hidden');
+            document.getElementById('dataControlsArea').classList.add('filter', 'blur-sm');
+            document.getElementById('posterPreviewArea').classList.add('filter', 'blur-sm');
+        }
+
+        function resetUI() {
+            isDebating = false;
+            const btn = document.getElementById('mainStartBtn');
+            btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> 启动分析`;
+            btn.classList.replace('bg-red-600', 'bg-blue-600');
+            btn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+            document.getElementById('simControls').classList.add('hidden');
+            document.getElementById('copywritingStatus').classList.add('hidden');
+            document.getElementById('copywritingStatus').classList.remove('flex');
+            document.getElementById('activeModelDisplay').innerText = "";
+            lucide.createIcons();
+        }
+
+        function addDebateBubble(role, name, icon, color, contentData) {
+            const div = document.createElement('div');
+            div.className = `debate-bubble p-3 rounded-lg border ${color} text-xs leading-relaxed mb-3 shadow-sm bg-white animate-fade-in`;
+            let text = typeof contentData === 'string' ? contentData : contentData.text;
+            let modelName = typeof contentData === 'object' ? contentData.model : '';
+            const contentMarkdown = (typeof marked !== 'undefined') ? marked.parse(text) : text;
+            div.innerHTML = `
+                <div class="font-bold mb-1 opacity-80 flex justify-between items-center border-b border-slate-200/50 pb-1 mb-2">
+                    <span class="flex items-center gap-1"><i data-lucide="${icon}" class="w-3 h-3"></i> ${name}</span>
+                    ${modelName ? `<span class="text-[9px] font-normal text-slate-400 bg-slate-50 px-1 rounded">${modelName}</span>` : ''}
+                </div>
+                <div class="text-slate-700 prose prose-xs max-w-none">${contentMarkdown}</div>
+            `;
+            const container = document.getElementById('debateContainer');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            lucide.createIcons();
+        }
+
+        function copyToClipboard() {
+            const el = document.getElementById('finalCopyOutput');
+            el.select(); document.execCommand('copy');
+            const btn = document.getElementById('copyBtn');
+            btn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> 已复制`;
+            setTimeout(() => { btn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> 复制全文`; }, 2000);
+        }
+    </script>
+</body>
+</html>
