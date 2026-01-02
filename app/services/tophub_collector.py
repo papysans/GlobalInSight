@@ -350,6 +350,9 @@ class TopHubCollector:
                         # 全榜特有字段：如果item中有platform字段，保留它
                         if 'platform' in item:
                             news_obj['platform'] = item['platform']
+                            logger.info(f"✓ 添加platform: {item['platform']}, item.keys={list(item.keys())}")
+                        else:
+                            logger.info(f"✗ 无platform字段, item.keys={list(item.keys())}")
                         
                         all_news.append(news_obj)
             

@@ -540,6 +540,29 @@ async def collect_hot_news(request: HotNewsCollectRequest):
                     filtered_news_list.append(news)
             news_list = filtered_news_list
         
+        # 对于全平台热榜，从URL提取平台信息
+        url_to_platform_map = {
+            'zhihu.com': '知乎',
+            'weibo.com': '微博',
+            'bilibili.com': 'B站',
+            'douyin.com': '抖音',
+            'baidu.com': '百度',
+            'tieba.baidu.com': '贴吧',
+            'kuaishou.com': '快手',
+            'xiaohongshu.com': '小红书',
+        }
+        
+        for news in news_list:
+            if news.get('source') == '全平台热榜' and news.get('url'):
+                # 从URL提取平台
+                url = news.get('url', '')
+                for domain, platform_name in url_to_platform_map.items():
+                    if domain in url:
+                        news['platform'] = platform_name
+                        break
+                if 'platform' not in news:
+                    news['platform'] = '其他平台'
+        
         # 按平台分组新闻
         for news in news_list:
             platform = news.get('source', '未知平台')

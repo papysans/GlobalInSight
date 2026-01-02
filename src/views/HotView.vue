@@ -131,8 +131,6 @@
                                     <span class="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
                                         热度 {{ topic.heat_display || '-' }}
                                     </span>
-                                    <span v-if="topic.rank" class="text-[10px] font-bold text-slate-400">排名 #{{
-                                        topic.rank }}</span>
                                 </div>
                             </div>
                         </div>
@@ -235,7 +233,7 @@ const configStore = useConfigStore()
 const topics = ref([])
 const selectedTopic = ref(null)
 const isLoading = ref(false)
-const selectedPlatform = ref(null) // 单选平台
+const selectedPlatform = ref('all') // 单选平台，默认为全榜
 const selectedCategory = ref('all')
 const sortBy = ref('heat')
 const searchQuery = ref('')
@@ -295,8 +293,8 @@ const filteredTopics = computed(() => {
 
 // Methods
 const selectPlatformAndRefresh = (platformId) => {
-    // 如果点击相同的平台，则取消选择
-    selectedPlatform.value = selectedPlatform.value === platformId ? null : platformId
+    // 直接设置平台，'all' 表示全榜
+    selectedPlatform.value = platformId
     refreshTrending({ forceRefresh: false })
 }
 
@@ -342,7 +340,7 @@ const refreshTrending = async ({ forceRefresh = false } = {}) => {
         const apiUrl = 'http://127.0.0.1:8000/api'
         // 构建请求体，包含选中的平台
         const requestBody = {
-            platforms: selectedPlatform.value ? [selectedPlatform.value] : null,
+            platforms: [selectedPlatform.value],  // 统一发送数组，后端处理 'all' 为特殊值
             force_refresh: forceRefresh
         }
         const response = await fetch(`${apiUrl}/hot-news/collect`, {
@@ -354,51 +352,43 @@ const refreshTrending = async ({ forceRefresh = false } = {}) => {
         })
         const data = await response.json()
 
-        // 转换 API 响应为视图所需格式
-        if (data.news_by_platform) {
-            const allNews = []
+        // 直接使用后端已过滤的 news_list（不要遍历 news_by_platform 导致拼接所有平台）
+        if (data.news_list && Array.isArray(data.news_list)) {
+            const allNews = data.news_list.map((news, idx) => {
+                const topicId = news.id || `${news.source_id}-${news.rank}`
+                const heat = parseHeatValue(news.hot_value)
+                const platformDisplay = news.platform || news.source || '未知平台'
 
-            for (const [platformName, newsList] of Object.entries(data.news_by_platform)) {
-                if (Array.isArray(newsList)) {
-                    newsList.forEach((news, idx) => {
-                        // 后端返回的字段：title, url, hot_value, rank, source, source_id, category, platform（全榜特有）
-                        const topicId = `${news.source_id}-${news.rank}`
-                        const heat = parseHeatValue(news.hot_value)
-                        
-                        // 对于全榜数据，可能包含 platform 字段；其他平台则用 news.source
-                        const platformDisplay = news.platform || news.source || '未知平台'
-
-                        allNews.push({
-                            id: topicId,
-                            title: news.title || `话题 #${idx + 1}`,
-                            description: news.description || '',
-                            platform_id: news.source_id,
+                return {
+                    id: topicId,
+                    title: news.title || `话题 #${idx + 1}`,
+                    description: news.description || '',
+                    platform_id: news.source_id,
+                    platform: platformDisplay,
+                    heat_score: heat.score,
+                    heat_display: heat.display,
+                    rank: news.rank || (idx + 1),
+                    category: news.category || 'all',
+                    source: news.url ? new URL(news.url).hostname : platformDisplay,
+                    url: news.url,
+                    growth: Math.floor(Math.random() * 50),
+                    controversy: Math.floor(Math.random() * 30),
+                    evidence: [
+                        {
                             platform: platformDisplay,
-                            heat_score: heat.score,
-                            heat_display: heat.display,
-                            rank: news.rank || (idx + 1),
-                            category: news.category || 'all',
-                            source: news.url ? new URL(news.url).hostname : platformDisplay,
-                            url: news.url,
-                            growth: Math.floor(Math.random() * 50), // 模拟增速（后续可优化）
-                            controversy: Math.floor(Math.random() * 30), // 模拟争议度（后续可优化）
-                            evidence: [
-                                {
-                                    platform: platformDisplay,
-                                    title: news.title || `话题证据 #${idx + 1}`
-                                }
-                            ],
-                            conflicts: [],
-                            platforms_data: [
-                                {
-                                    platform: platformDisplay,
-                                    hot_value: heat.display
-                                }
-                            ]
-                        })
-                    })
+                            title: news.title || `话题证据 #${idx + 1}`
+                        }
+                    ],
+                    conflicts: [],
+                    platforms_data: [
+                        {
+                            platform: platformDisplay,
+                            hot_value: heat.display
+                        }
+                    ]
                 }
-            }
+            })
+
             topics.value = allNews
             selectedTopic.value = null
         }
