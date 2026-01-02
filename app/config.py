@@ -82,4 +82,13 @@ class Config:
         "ks": {"max_items": 5, "max_comments": 10},
     }
 
+    # --- Hot News Settings (TopHub) ---
+    HOT_NEWS_CONFIG = {
+        "enabled": True,
+        "platform_sources": [],  # Empty list means collect all platforms
+        "fetch_interval_hours": 4,
+        "cache_ttl_minutes": 30,
+        "max_items_per_platform": 100,
+    }
+
 settings = Config()

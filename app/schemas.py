@@ -40,16 +40,31 @@ class CrawlerLimit(BaseModel):
     max_items: int
     max_comments: int
 
+class HotNewsConfig(BaseModel):
+    """热榜配置"""
+    enabled: bool = True
+    platform_sources: List[str] = []  # 空数组表示收集所有平台
+    fetch_interval_hours: int = 4
+    cache_ttl_minutes: int = 30
+    max_items_per_platform: int = 100
+
+class HotNewsCollectRequest(BaseModel):
+    """热榜收集请求"""
+    platforms: Optional[List[str]] = None  # 指定平台列表，None表示所有平台
+    force_refresh: bool = False  # 是否强制刷新
+
 class ConfigResponse(BaseModel):
     llm_providers: Dict[str, List[LLMProviderConfig]]
     crawler_limits: Dict[str, CrawlerLimit]
     debate_max_rounds: int
     default_platforms: List[str]
+    hot_news_config: Optional[HotNewsConfig] = None
 
 class ConfigUpdateRequest(BaseModel):
     debate_max_rounds: Optional[int] = None
     crawler_limits: Optional[Dict[str, CrawlerLimit]] = None
     default_platforms: Optional[List[str]] = None
+    hot_news_config: Optional[HotNewsConfig] = None
 
 # --- 输出文件相关 Schema ---
 class OutputFileInfo(BaseModel):

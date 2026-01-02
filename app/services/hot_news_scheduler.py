@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
-from app.services.hot_news_collector import hot_news_collector
+from app.services.tophub_collector import tophub_collector
 
 
 class HotNewsScheduler:
@@ -68,7 +68,7 @@ class HotNewsScheduler:
         logger.info(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         try:
-            result = await hot_news_collector.collect_news()
+            result = await tophub_collector.collect_news()
             self.last_run_time = datetime.now()
             self.last_result = result
             

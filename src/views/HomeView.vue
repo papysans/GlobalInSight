@@ -5,68 +5,51 @@
         <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
           舆情洞察与<span class="gradient-text">爆款文案生成</span>引擎
         </h1>
-        
+
         <div class="max-w-2xl mx-auto mt-8 relative z-10">
           <div class="relative group">
-            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+            <div
+              class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200">
+            </div>
             <div class="relative flex items-center bg-white rounded-xl shadow-xl border border-slate-200 p-1">
               <div class="pl-4 text-slate-400">
                 <Search class="w-5 h-5" />
               </div>
-              <input
-                v-model="topic"
-                type="text"
+              <input v-model="topic" type="text"
                 class="w-full py-3 px-4 text-slate-700 bg-transparent outline-none placeholder:text-slate-400"
-                placeholder="输入您想了解的任何议题..."
-                @keyup.enter="handleStart"
-              />
-              
+                placeholder="输入您想了解的任何议题..." @keyup.enter="handleStart" />
+
               <div class="h-8 border-l border-slate-200 mx-2"></div>
-              
+
               <div class="flex items-center gap-2 pr-2" title="辩论轮数">
                 <span class="text-xs text-slate-400 font-bold whitespace-nowrap">轮数:</span>
-                <input
-                  v-model.number="debateRounds"
-                  type="number"
-                  min="1"
-                  max="5"
-                  class="w-12 py-1 px-2 text-center text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500"
-                />
+                <input v-model.number="debateRounds" type="number" min="1" max="5"
+                  class="w-12 py-1 px-2 text-center text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500" />
               </div>
 
-              <button
-                @click="handleStart"
-                :class="[
-                  'px-6 py-2 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-md whitespace-nowrap min-w-[120px] justify-center',
-                  isLoading ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
-                ]"
-              >
+              <button @click="handleStart" :class="[
+                'px-6 py-2 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-md whitespace-nowrap min-w-[120px] justify-center',
+                isLoading ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+              ]">
                 <component :is="isLoading ? Square : Sparkles" class="w-4 h-4" />
                 {{ isLoading ? '停止分析' : '启动分析' }}
               </button>
             </div>
           </div>
-          
+
           <div class="mt-4 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-500">
             <div class="flex items-center gap-1 font-bold text-red-500">
               <TrendingUp class="w-3 h-3" />
               <span>{{ trendingDate }}热搜:</span>
             </div>
             <div class="flex gap-2">
-              <button
-                v-for="(t, idx) in trendingTopics"
-                :key="idx"
-                @click="topic = t"
-                class="px-3 py-1 bg-white border border-slate-200 rounded-full hover:border-blue-300 hover:text-blue-600 transition-colors animate-fade-in text-xs whitespace-nowrap"
-              >
+              <button v-for="(t, idx) in trendingTopics" :key="idx" @click="topic = t"
+                class="px-3 py-1 bg-white border border-slate-200 rounded-full hover:border-blue-300 hover:text-blue-600 transition-colors animate-fade-in text-xs whitespace-nowrap">
                 {{ t }}
               </button>
             </div>
-            <button
-              @click="refreshTrending"
-              class="ml-1 p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
-              title="刷新热搜"
-            >
+            <button @click="refreshTrending"
+              class="ml-1 p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" title="刷新热搜">
               <RefreshCw class="w-3 h-3" />
             </button>
           </div>
@@ -75,7 +58,8 @@
     </header>
 
     <!-- 顶部进度条 -->
-    <div v-if="isLoading && workflowStatus.running" class="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm">
+    <div v-if="isLoading && workflowStatus.running"
+      class="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 py-3">
         <div class="flex items-center gap-4">
           <div class="flex-1">
@@ -84,10 +68,9 @@
               <span class="text-xs font-bold text-blue-600">{{ workflowStatus.progress }}%</span>
             </div>
             <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-              <div 
+              <div
                 class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out"
-                :style="{ width: workflowStatus.progress + '%' }"
-              ></div>
+                :style="{ width: workflowStatus.progress + '%' }"></div>
             </div>
           </div>
           <div class="text-xs text-slate-500 whitespace-nowrap">
@@ -104,14 +87,10 @@
           <Activity class="w-4 h-4 text-blue-600" /> 工作流进度
         </h3>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div
-            v-for="step in workflowSteps"
-            :key="step.key"
-            :class="[
-              'p-3 rounded-lg border-2 transition-all',
-              getStepClass(step.key)
-            ]"
-          >
+          <div v-for="step in workflowSteps" :key="step.key" :class="[
+            'p-3 rounded-lg border-2 transition-all',
+            getStepClass(step.key)
+          ]">
             <div class="flex items-center gap-2 mb-1">
               <component :is="step.icon" :class="['w-4 h-4', getStepIconClass(step.key)]" />
               <span class="text-xs font-bold" :class="getStepTextClass(step.key)">
@@ -119,8 +98,8 @@
               </span>
             </div>
             <div class="text-[10px] text-slate-400 mt-1">
-              <span v-if="step.key === 'crawler_agent' && workflowStatus.current_platform" 
-                    class="text-blue-600 font-bold platform-crawling">
+              <span v-if="step.key === 'crawler_agent' && workflowStatus.current_platform"
+                class="text-blue-600 font-bold platform-crawling">
                 正在爬取 {{ workflowStatus.current_platform }}...
               </span>
               <span v-else>{{ step.description }}</span>
@@ -138,9 +117,11 @@
                 <Cpu class="w-5 h-5 text-blue-600" /> 智能体协作 (Multi-Agent Debate)
               </h2>
               <div v-if="isLoading" class="flex items-center gap-2">
-                <div class="px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-medium flex items-center gap-2">
+                <div
+                  class="px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-medium flex items-center gap-2">
                   <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span
+                      class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
                   <span>Real-time Inference</span>
@@ -148,30 +129,32 @@
               </div>
             </div>
 
-            <div class="glass-card rounded-xl flex flex-col border-t-4 border-t-blue-500 h-[450px] shadow-lg relative overflow-hidden">
-              <div class="p-3 bg-slate-50/80 border-b border-slate-100 flex justify-between items-center backdrop-blur text-xs font-bold text-slate-600 z-10">
+            <div
+              class="glass-card rounded-xl flex flex-col border-t-4 border-t-blue-500 h-[450px] shadow-lg relative overflow-hidden">
+              <div
+                class="p-3 bg-slate-50/80 border-b border-slate-100 flex justify-between items-center backdrop-blur text-xs font-bold text-slate-600 z-10">
                 <span>AI 辩论过程实时推演</span>
                 <span class="text-slate-400 font-normal text-[10px]">{{ activeModelDisplay }}</span>
               </div>
-              <div class="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 font-mono text-sm bg-white/50 relative scroll-smooth">
+              <div
+                class="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 font-mono text-sm bg-white/50 relative scroll-smooth">
                 <!-- 调试信息 -->
                 <div v-if="false" class="text-xs text-red-500 p-2 bg-red-50 mb-2">
                   调试: debateLogs.length={{ debateLogs.length }}, storeLogs.length={{ storeLogs.length }}
                 </div>
-                <div v-if="debateLogs.length === 0" class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                <div v-if="debateLogs.length === 0"
+                  class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
                   <Bot class="w-16 h-16 mb-4 stroke-1" />
                   <p>等待指令启动...</p>
-                  <p class="text-xs mt-2 text-slate-300">Store日志数: {{ storeLogs.length }} | 显示日志数: {{ debateLogs.length }}</p>
+                  <p class="text-xs mt-2 text-slate-300">Store日志数: {{ storeLogs.length }} | 显示日志数: {{ debateLogs.length
+                    }}</p>
                 </div>
-                <div
-                  v-for="(log, idx) in debateLogs"
-                  :key="`log-${idx}-${log.name}`"
-                  :class="[
-                    'debate-bubble p-3 rounded-lg border text-xs leading-relaxed mb-3 shadow-sm bg-white animate-fade-in',
-                    getBubbleClass(log.role)
-                  ]"
-                >
-                  <div class="font-bold mb-1 opacity-80 flex justify-between items-center border-b border-slate-200/50 pb-1 mb-2">
+                <div v-for="(log, idx) in debateLogs" :key="`log-${idx}-${log.name}`" :class="[
+                  'debate-bubble p-3 rounded-lg border text-xs leading-relaxed mb-3 shadow-sm bg-white animate-fade-in',
+                  getBubbleClass(log.role)
+                ]">
+                  <div
+                    class="font-bold mb-1 opacity-80 flex justify-between items-center border-b border-slate-200/50 pb-1 mb-2">
                     <span class="flex items-center gap-1">
                       <component :is="getIcon(log.role)" class="w-3 h-3" />
                       {{ log.name }}
@@ -192,10 +175,12 @@
             </h2>
             <div class="glass-card rounded-xl p-5 shadow-md border-l-4 border-l-yellow-400 min-h-[140px] flex flex-col">
               <div class="text-sm text-slate-600 leading-relaxed flex-1 flex flex-col">
-                <div v-if="!insight" class="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 italic text-xs">
+                <div v-if="!insight"
+                  class="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 italic text-xs">
                   等待辩论结论产出...
                 </div>
-                <div v-else class="animate-fade-in p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-100 text-slate-700 shadow-sm h-full overflow-y-auto">
+                <div v-else
+                  class="animate-fade-in p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-100 text-slate-700 shadow-sm h-full overflow-y-auto">
                   <strong class="text-orange-600 block mb-2 flex items-center gap-1 text-sm uppercase tracking-wider">
                     <Zap class="w-4 h-4" /> Grand Insight
                   </strong>
@@ -213,11 +198,14 @@
           </h2>
 
           <div class="glass-card p-6 rounded-xl shadow-lg flex justify-center bg-slate-100/50">
-            <div class="glass-card rounded-[3rem] overflow-hidden shadow-2xl bg-white w-full max-w-[300px] h-[600px] flex flex-col transform transition hover:scale-[1.02] duration-300" style="border: 8px solid #1e293b;">
+            <div
+              class="glass-card rounded-[3rem] overflow-hidden shadow-2xl bg-white w-full max-w-[300px] h-[600px] flex flex-col transform transition hover:scale-[1.02] duration-300"
+              style="border: 8px solid #1e293b;">
               <!-- Status Bar -->
               <div class="relative bg-white px-5 h-10 flex items-center justify-between z-10 flex-shrink-0 select-none">
                 <span class="text-[10px] font-bold text-slate-900 w-8">09:41</span>
-                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-black rounded-full flex justify-center items-center">
+                <div
+                  class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-black rounded-full flex justify-center items-center">
                   <div class="w-1.5 h-1.5 bg-gray-800 rounded-full absolute right-4"></div>
                 </div>
                 <div class="w-8 flex justify-end">
@@ -226,41 +214,32 @@
               </div>
 
               <!-- Screen Content -->
-              <div
-                class="relative cursor-pointer group flex-1 flex flex-col overflow-hidden"
-                @click="switchPhoneImage"
-                title="点击切换配图风格"
-              >
-                <div
-                  :class="[
-                    'aspect-[3/4] relative overflow-hidden flex-shrink-0 transition-colors duration-500',
-                    phoneStyles[currentPhoneStyleIndex].bg
-                  ]"
-                >
-                  <div
-                    v-if="!xhsPreview.title"
-                    class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 transition-opacity duration-300"
-                  >
+              <div class="relative cursor-pointer group flex-1 flex flex-col overflow-hidden" @click="switchPhoneImage"
+                title="点击切换配图风格">
+                <div :class="[
+                  'aspect-[3/4] relative overflow-hidden flex-shrink-0 transition-colors duration-500',
+                  phoneStyles[currentPhoneStyleIndex].bg
+                ]">
+                  <div v-if="!xhsPreview.title"
+                    class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 transition-opacity duration-300">
                     <Image class="w-8 h-8 mb-2 opacity-50" />
                     <span class="text-xs">AI 配图生成区</span>
                   </div>
-                  <div
-                    v-else
-                    class="absolute inset-0 flex flex-col items-center justify-center opacity-100 transition-opacity duration-700 p-4 text-center"
-                  >
+                  <div v-else
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-100 transition-opacity duration-700 p-4 text-center">
                     <div class="text-6xl mb-4 drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
                       {{ phoneStyles[currentPhoneStyleIndex].icon }}
                     </div>
-                    <h2
-                      :class="[
-                        'text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100',
-                        phoneStyles[currentPhoneStyleIndex].textColor
-                      ]"
-                    >
+                    <h2 :class="[
+                      'text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100',
+                      phoneStyles[currentPhoneStyleIndex].textColor
+                    ]">
                       {{ xhsPreview.title.substring(0, 15) }}
                     </h2>
-                    <div class="absolute bottom-4 right-4 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                      点击切换风格 <RefreshCcw class="w-3 h-3 inline" />
+                    <div
+                      class="absolute bottom-4 right-4 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      点击切换风格
+                      <RefreshCcw class="w-3 h-3 inline" />
                     </div>
                   </div>
                 </div>
@@ -277,12 +256,19 @@
                     </div>
                     <div v-else class="prose prose-xs max-w-none" v-html="renderMarkdown(xhsPreview.content)"></div>
                   </div>
-                  <div class="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between text-slate-400 text-[10px]">
+                  <div
+                    class="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between text-slate-400 text-[10px]">
                     <div class="flex gap-2">
-                      <span><Heart class="w-3 h-3 inline" /> 1.2w</span>
-                      <span><Star class="w-3 h-3 inline" /> 5k</span>
+                      <span>
+                        <Heart class="w-3 h-3 inline" /> 1.2w
+                      </span>
+                      <span>
+                        <Star class="w-3 h-3 inline" /> 5k
+                      </span>
                     </div>
-                    <span><MessageCircle class="w-3 h-3 inline" /> 892</span>
+                    <span>
+                      <MessageCircle class="w-3 h-3 inline" /> 892
+                    </span>
                   </div>
                 </div>
               </div>
@@ -300,19 +286,13 @@
           <div v-if="isLoading" class="flex items-center gap-2 mb-4 text-sm font-bold text-emerald-600 animate-pulse">
             <Loader2 class="w-4 h-4 animate-spin" /> 正在后台处理信息，生成最终文案...
           </div>
-          
+
           <div class="relative">
-            <textarea
-              :value="finalCopy"
-              readonly
+            <textarea :value="finalCopy" readonly
               class="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-mono resize-none focus:outline-none focus:border-blue-500 transition-colors"
-              placeholder="等待辩论结束后，在此生成可直接发布的文案..."
-            ></textarea>
-            <button
-              @click="copyToClipboard"
-              :disabled="!finalCopy || finalCopy.length === 0"
-              class="absolute top-3 right-3 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+              placeholder="等待辩论结束后，在此生成可直接发布的文案..."></textarea>
+            <button @click="copyToClipboard" :disabled="!finalCopy || finalCopy.length === 0"
+              class="absolute top-3 right-3 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
               <Copy class="w-3 h-3" /> 复制全文
             </button>
           </div>
@@ -346,6 +326,21 @@ const { logs: storeLogs } = storeToRefs(analysisStore)
 const { status: workflowStatus } = storeToRefs(workflowStore)
 
 const topic = ref('')
+
+// 从热榜一键推演的缓存填充搜索框
+const hydrateHotTopicDraft = () => {
+  try {
+    const cached = sessionStorage.getItem('hot_topic_draft')
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      if (parsed && parsed.title) {
+        topic.value = parsed.title
+      }
+    }
+  } catch (e) {
+    console.warn('failed to hydrate hot_topic_draft', e)
+  }
+}
 
 // 从 localStorage 恢复辩论轮数，如果没有则使用默认值 2
 const loadDebateRounds = () => {
@@ -407,14 +402,14 @@ const workflowSteps = [
 const getStepClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
   const progress = workflowStatus.value.progress
-  
+
   if (!currentStep) {
     return 'border-slate-200 bg-slate-50'
   }
-  
+
   const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
-  
+
   if (stepIndex < currentIndex) {
     // 已完成
     return 'border-green-200 bg-green-50'
@@ -431,10 +426,10 @@ const getStepClass = (stepKey) => {
 const getStepIconClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
   if (!currentStep) return 'text-slate-400'
-  
+
   const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
-  
+
   if (stepIndex < currentIndex) {
     return 'text-green-600'
   } else if (stepIndex === currentIndex) {
@@ -448,10 +443,10 @@ const getStepIconClass = (stepKey) => {
 const getStepTextClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
   if (!currentStep) return 'text-slate-500'
-  
+
   const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
-  
+
   if (stepIndex < currentIndex) {
     return 'text-green-700'
   } else if (stepIndex === currentIndex) {
@@ -473,11 +468,11 @@ const currentStepText = computed(() => {
 // 已用时间
 const elapsedTime = computed(() => {
   if (!workflowStatus.value.started_at) return ''
-  
+
   const start = new Date(workflowStatus.value.started_at)
   const now = new Date()
   const diff = Math.floor((now - start) / 1000)
-  
+
   if (diff < 60) {
     return `已用时 ${diff}秒`
   } else {
@@ -557,7 +552,7 @@ const handleStart = async () => {
 
   try {
     console.log('[HomeView] 开始分析，议题:', topic.value, '辩论轮数:', debateRounds.value)
-    
+
     await analysisStore.startAnalysis({
       topic: topic.value,
       debate_rounds: debateRounds.value
@@ -576,15 +571,15 @@ watch(storeLogs, (newLogs, oldLogs) => {
   const newLength = (newLogs && newLogs.length) || 0
   console.log(`[HomeView] ⚡ watch触发: ${oldLength} -> ${newLength} (新增 ${newLength - oldLength} 条)`)
   console.log('[HomeView] 当前debateLogs长度:', debateLogs.value.length)
-  
+
   if (newLogs && newLogs.length > 0) {
     // 只处理新增的日志
     const startIndex = oldLength
     const newLogsToProcess = newLogs.slice(startIndex)
-    
+
     if (newLogsToProcess.length > 0) {
       console.log('[HomeView] ✅ 处理新日志，数量:', newLogsToProcess.length)
-      
+
       newLogsToProcess.forEach((log, index) => {
         const globalIndex = startIndex + index
         console.log(`[HomeView] 📝 处理日志 #${globalIndex}:`, {
@@ -594,7 +589,7 @@ watch(storeLogs, (newLogs, oldLogs) => {
           content_length: (log.step_content || '').length,
           has_model: !!log.model
         })
-        
+
         // 添加辩论日志
         const roleMap = {
           'Moderator': 'moderator',
@@ -605,7 +600,7 @@ watch(storeLogs, (newLogs, oldLogs) => {
           'Writer': 'writer',
           'System': 'system'
         }
-        
+
         const role = roleMap[log.agent_name] || 'system'
         const logEntry = {
           role: role,
@@ -613,7 +608,7 @@ watch(storeLogs, (newLogs, oldLogs) => {
           content: log.step_content || '',
           model: log.model || ''
         }
-        
+
         console.log('[HomeView] ➕ 添加辩论日志:', logEntry.name, '到数组，当前长度:', debateLogs.value.length)
         debateLogs.value.push(logEntry)
         console.log('[HomeView] ✅ 添加后数组长度:', debateLogs.value.length, '最新条目:', debateLogs.value[debateLogs.value.length - 1])
@@ -622,12 +617,12 @@ watch(storeLogs, (newLogs, oldLogs) => {
         if (log.agent_name === 'Writer' && log.step_content) {
           console.log('[HomeView] ✍️ 处理Writer输出，更新预览，原始内容长度:', log.step_content.length)
           const content = log.step_content
-          
+
           // 尝试解析 TITLE: 和 CONTENT: 格式
           if (content.includes('TITLE:') && content.includes('CONTENT:')) {
             const titleMatch = content.match(/TITLE:\s*(.+?)(?:\n|CONTENT:)/s)
             const contentMatch = content.match(/CONTENT:\s*(.+?)(?:\n\n|$)/s)
-            
+
             if (titleMatch) {
               xhsPreview.value.title = titleMatch[1].trim()
               console.log('[HomeView] 📌 解析到标题:', xhsPreview.value.title)
@@ -666,7 +661,7 @@ watch(() => analysisStore.finalCopy, (newCopy) => {
     title_length: (newCopy.title || '').length,
     body_length: (newCopy.body || '').length
   })
-  
+
   if (newCopy && newCopy.body) {
     if (!xhsPreview.value.title && newCopy.title) {
       xhsPreview.value.title = newCopy.title
@@ -696,6 +691,7 @@ const copyToClipboard = async () => {
 
 onMounted(() => {
   refreshTrending()
+  hydrateHotTopicDraft()
 })
 </script>
 
@@ -710,9 +706,12 @@ onMounted(() => {
 }
 
 @keyframes platformBlink {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.4;
   }

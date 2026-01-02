@@ -7,11 +7,12 @@ from app.schemas import (
     WorkflowStatusResponse, LLMProviderConfig, CrawlerLimit,
     GenerateContrastRequest, GenerateContrastResponse,
     GenerateSentimentRequest, GenerateSentimentResponse, EmotionItem,
-    GenerateKeywordsRequest, GenerateKeywordsResponse, KeywordItem
+    GenerateKeywordsRequest, GenerateKeywordsResponse, KeywordItem,
+    HotNewsCollectRequest
 )
 from app.services.workflow import app_graph
 from app.services.workflow_status import workflow_status
-from app.services.hot_news_collector import hot_news_collector
+from app.services.tophub_collector import tophub_collector
 from app.services.hot_news_scheduler import hot_news_scheduler
 from app.config import settings
 from pathlib import Path
@@ -121,11 +122,16 @@ async def get_config():
         for platform, limits in settings.CRAWLER_LIMITS.items()
     }
     
+    # 转换热榜配置格式
+    from app.schemas import HotNewsConfig
+    hot_news_config = HotNewsConfig(**settings.HOT_NEWS_CONFIG)
+    
     return ConfigResponse(
         llm_providers=llm_providers,
         crawler_limits=crawler_limits,
         debate_max_rounds=settings.DEBATE_MAX_ROUNDS,
-        default_platforms=settings.DEFAULT_PLATFORMS
+        default_platforms=settings.DEFAULT_PLATFORMS,
+        hot_news_config=hot_news_config
     )
 
 
@@ -154,6 +160,11 @@ async def update_config(request: ConfigUpdateRequest):
             raise HTTPException(status_code=400, detail=f"无效的平台: {invalid}")
         settings.DEFAULT_PLATFORMS = request.default_platforms
         updated_fields.append("default_platforms")
+    
+    if request.hot_news_config is not None:
+        # 更新热榜配置
+        settings.HOT_NEWS_CONFIG = request.hot_news_config.dict()
+        updated_fields.append("hot_news_config")
     
     if not updated_fields:
         raise HTTPException(status_code=400, detail="没有提供要更新的字段")
@@ -481,18 +492,60 @@ async def generate_keywords_data(request: GenerateKeywordsRequest):
 # --- 热点新闻接口 ---
 
 @router.post("/hot-news/collect")
-async def collect_hot_news(sources: Optional[List[str]] = None):
-    """手动触发热点新闻收集"""
+async def collect_hot_news(request: HotNewsCollectRequest):
+    """
+    手动触发热点新闻收集
+    
+    Args:
+        request.platforms: 指定要过滤的平台列表 (如 ['weibo', 'bilibili']) 或 ['all']，None表示不过滤（返回所有）
+        request.force_refresh: 是否强制刷新（忽略缓存）
+    """
     try:
-        result = await hot_news_collector.collect_news(sources=sources)
+        # 平台名称映射关系 (前端ID → 后端source字段值)
+        platform_mapping = {
+            'weibo': '微博热搜榜',
+            'bilibili': 'B站全站日榜',
+            'douyin': '抖音热榜',
+            'baidu': '百度实时热点',
+            'tieba': '百度贴吧热榜',
+            'kuaishou': '快手热榜',
+            'zhihu': '知乎热榜',
+            'xhs': '小红书热榜',
+            'hot': '全平台热榜'  # 全榜聚合
+        }
+        
+        result = await tophub_collector.collect_news(force_refresh=request.force_refresh)
         
         # 按平台分组
         from collections import defaultdict
+        from datetime import datetime
         news_by_platform = defaultdict(list)
         news_list = result.get('news_list', [])
         
+        # 获取收集时间用作所有新闻的时间戳
+        collection_time = result.get('collection_time', datetime.now().isoformat())
+        
+        # 如果指定了平台，进行过滤
+        if request.platforms and 'all' not in request.platforms:
+            # 将前端平台ID转换为后端的source名称
+            target_sources = set()
+            for platform_id in request.platforms:
+                if platform_id in platform_mapping:
+                    target_sources.add(platform_mapping[platform_id])
+            
+            # 过滤新闻列表，只保留指定平台的新闻
+            filtered_news_list = []
+            for news in news_list:
+                if news.get('source', '') in target_sources:
+                    filtered_news_list.append(news)
+            news_list = filtered_news_list
+        
+        # 按平台分组新闻
         for news in news_list:
-            platform = news.get('source_name', '未知平台')
+            platform = news.get('source', '未知平台')
+            # 为每条新闻添加时间戳（如果没有的话）
+            if 'timestamp' not in news:
+                news['timestamp'] = collection_time
             news_by_platform[platform].append(news)
         
         # 转换为字典格式，方便前端使用
@@ -503,12 +556,13 @@ async def collect_hot_news(sources: Optional[List[str]] = None):
         
         return {
             "success": result['success'],
-            "total_news": result.get('total_news', 0),
+            "total_news": len(news_list),  # 返回过滤后的新闻数量
             "successful_sources": result.get('successful_sources', 0),
             "total_sources": result.get('total_sources', 0),
             "news_list": news_list[:100],  # 返回所有新闻（最多100条）
             "news_by_platform": platform_news,  # 按平台分组
-            "collection_time": result.get('collection_time'),
+            "collection_time": collection_time,
+            "from_cache": result.get('from_cache', False),
             "error": result.get('error')
         }
     except Exception as e:
@@ -535,3 +589,59 @@ async def run_hot_news_once():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"执行失败: {str(e)}")
+
+
+@router.get("/hot-news/cache-info")
+async def get_cache_info():
+    """获取缓存信息"""
+    from app.services.hot_news_cache import hot_news_cache
+    cache_info = hot_news_cache.get_cache_info()
+    return cache_info
+
+
+@router.post("/hot-news/clear-cache")
+async def clear_cache():
+    """清除热点新闻缓存"""
+    try:
+        from app.services.hot_news_cache import hot_news_cache
+        hot_news_cache.clear_cache()
+        return {
+            "success": True,
+            "message": "缓存已清除"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"清除缓存失败: {str(e)}")
+
+
+@router.get("/hot-news/platforms")
+async def get_supported_platforms():
+    """获取支持的平台列表"""
+    from app.services.tophub_collector import TOPHUB_SOURCES, PENDING_PLATFORMS
+    
+    platforms = []
+    for source_id, info in TOPHUB_SOURCES.items():
+        platforms.append({
+            "source_id": source_id,
+            "name": info['name'],
+            "category": info['category'],
+            "platform": info['platform'],
+            "priority": info['priority'],
+            "supported": True
+        })
+    
+    # 添加待支持平台
+    for platform_id, name in PENDING_PLATFORMS.items():
+        platforms.append({
+            "platform": platform_id,
+            "name": name,
+            "supported": False
+        })
+    
+    # 按优先级排序
+    platforms.sort(key=lambda x: x.get('priority', 999))
+    
+    return {
+        "platforms": platforms,
+        "total_supported": len(TOPHUB_SOURCES),
+        "total_pending": len(PENDING_PLATFORMS)
+    }
