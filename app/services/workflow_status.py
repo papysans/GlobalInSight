@@ -32,9 +32,13 @@ class WorkflowStatusManager:
                 "current_platform": None,
             }
     
-    async def update_step(self, step: str, progress: int = None, current_platform: Optional[str] = None):
+    async def update_step(self, step: str, progress: int = None, current_platform: Any = "UNCHANGED"):
         """更新当前步骤"""
         async with self._lock:
+            # 如果步骤切换了，且没有明确指定平台，则自动清空平台信息
+            if step != self._status["current_step"] and current_platform == "UNCHANGED":
+                self._status["current_platform"] = None
+
             self._status["current_step"] = step
             if progress is not None:
                 self._status["progress"] = progress
@@ -48,8 +52,9 @@ class WorkflowStatusManager:
                     "writer": 90,
                 }
                 self._status["progress"] = step_progress.get(step, self._status["progress"])
-            # 更新当前平台（如果提供）
-            if current_platform is not None:
+            
+            # 更新当前平台（如果明确提供，包括 None）
+            if current_platform != "UNCHANGED":
                 self._status["current_platform"] = current_platform
     
     async def finish_workflow(self):

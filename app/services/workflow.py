@@ -83,12 +83,17 @@ SUB: 公信力重建的紧迫性
 DEBATER_PROMPT = """
 你是一名魔鬼代言人（反对派）。
 你的任务是严格基于提供的**主题**和**新闻事实**来反驳分析师的观点。
-1. **语境检查**：确保分析实际上与提供的主题相符。如果分析师在谈论其他内容，请指出来。
-2. **脚踏实地**：不要产生新的话题或外部辩论的幻觉（例如，如果主题是"AI"，不要扯到"地平论"）。
-3. **反驳**：寻找逻辑谬误、来源中缺失的事实或过度概括。
-4. **裁决**：
-    * 如果分析稳固且没有重大问题，请仅回复 "PASS"。
-    * 否则，请提供尖锐的**中文**反驳。
+
+你的目标是挑战分析师，迫使他们进行更深层次的思考。即使分析看起来不错，也要尝试从以下角度寻找突破口：
+1. **逻辑漏洞**：是否存在过度推断、因果倒置或幸存者偏差？
+2. **视角缺失**：是否忽略了某些利益相关者的声音？是否只关注了宏观叙事而忽略了微观个体？
+3. **证据强度**：分析是否过度依赖某些可能存在偏见的来源？
+4. **语境检查**：确保分析实际上与提供的主题相符。
+
+裁决规则：
+- 只有当分析已经极其完美、无懈可击，且你实在找不到任何可以改进的地方时，才回复 "PASS"。
+- 在前几轮辩论中，你应该尽可能地提出建设性的批评，而不是轻易放行。
+- 你的反驳必须使用**中文**，且言辞犀利但基于事实。
 """
 
 WRITER_PROMPT = """
@@ -332,18 +337,26 @@ async def debater_node(state: GraphState):
     analysis = state["initial_analysis"]
     topic = state["topic"]
     news_content = state["news_content"]
+    revision_count = state.get("revision_count", 0)
+    debate_rounds = state.get("debate_rounds", settings.DEBATE_MAX_ROUNDS)
     llm = get_agent_llm("debater")
     
+    prompt_suffix = ""
+    if revision_count + 1 < debate_rounds:
+        prompt_suffix = f"\n\n当前是第 {revision_count + 1} 轮辩论（目标总轮数: {debate_rounds}）。请尽可能提出尖锐的改进建议，除非分析已经完美到无可挑剔，否则不要回复 PASS。"
+    else:
+        prompt_suffix = f"\n\n当前是最后一轮辩论。如果分析已经足够好，可以回复 PASS。"
+
     messages = [
         SystemMessage(content=DEBATER_PROMPT),
-        HumanMessage(content=f"主题: {topic}\n\n新闻事实: {news_content}\n\n分析师观点: {analysis}\n\n请根据事实审查该分析。")
+        HumanMessage(content=f"主题: {topic}\n\n新闻事实: {news_content}\n\n分析师观点: {analysis}{prompt_suffix}\n\n请根据事实审查该分析。")
     ]
     response = await llm.ainvoke(messages)
     content = extract_text_content(response.content)
     
     # Update history
     history = state.get("debate_history", [])
-    history.append(f"### Debater (Critique)\n{content}\n")
+    history.append(f"### Debater (Critique Round {revision_count + 1})\n{content}\n")
     
     return {
         "critique": content,
@@ -405,10 +418,22 @@ def should_continue(state: GraphState):
     # Note: revision_count is 0-based, so we check >= debate_rounds
     # If debate_rounds=2, we allow rounds 0,1 (2 rounds total)
     max_rounds = min(debate_rounds, settings.DEBATE_MAX_ROUNDS)  # 取两者较小值
-    if "VERDICT_PASS" in critique.upper() or "PASS" in critique.upper() or revision_count >= max_rounds:
+    
+    # 更精确的 PASS 检查：通常 PASS 响应会比较短
+    is_pass = "PASS" in critique.upper()
+    if is_pass and len(critique.strip()) > 100:
+        # 如果响应很长，可能只是正文中提到了 pass 这个词，而不是真正的跳过
+        if not (critique.strip().upper().startswith("PASS") or critique.strip().upper().endswith("PASS")):
+            is_pass = False
+
+    if is_pass or revision_count >= max_rounds:
         if revision_count >= max_rounds:
             print(f"[INFO] 已达到最大辩论轮数 ({max_rounds} 轮)，停止辩论")
+        else:
+            print(f"[INFO] Debater 给出 PASS，停止辩论")
         return "writer"
+    
+    print(f"[INFO] 继续辩论: 第 {revision_count + 1} 轮完成，目标 {max_rounds} 轮")
     return "analyst"
 
 # --- 6. Graph Construction ---

@@ -65,12 +65,12 @@
           <div class="flex-1">
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm font-medium text-slate-700">{{ currentStepText }}</span>
-              <span class="text-xs font-bold text-blue-600">{{ workflowStatus.progress }}%</span>
+              <span class="text-xs font-bold text-blue-600">{{ displayProgress }}%</span>
             </div>
             <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
               <div
                 class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out"
-                :style="{ width: workflowStatus.progress + '%' }"></div>
+                :style="{ width: displayProgress + '%' }"></div>
             </div>
           </div>
           <div class="text-xs text-slate-500 whitespace-nowrap">
@@ -98,7 +98,8 @@
               </span>
             </div>
             <div class="text-[10px] text-slate-400 mt-1">
-              <span v-if="step.key === 'crawler_agent' && workflowStatus.current_platform"
+              <span
+                v-if="step.key === 'crawler_agent' && workflowStatus.current_step === 'crawler_agent' && workflowStatus.current_platform"
                 class="text-blue-600 font-bold platform-crawling">
                 正在爬取 {{ workflowStatus.current_platform }}...
               </span>
@@ -147,7 +148,7 @@
                   <Bot class="w-16 h-16 mb-4 stroke-1" />
                   <p>等待指令启动...</p>
                   <p class="text-xs mt-2 text-slate-300">Store日志数: {{ storeLogs.length }} | 显示日志数: {{ debateLogs.length
-                    }}</p>
+                  }}</p>
                 </div>
                 <div v-for="(log, idx) in debateLogs" :key="`log-${idx}-${log.name}`" :class="[
                   'debate-bubble p-3 rounded-lg border text-xs leading-relaxed mb-3 shadow-sm bg-white animate-fade-in',
@@ -381,6 +382,29 @@ const activeModelDisplay = ref('')
 const trendingDate = ref('')
 const trendingTopics = ref([])
 const currentPhoneStyleIndex = ref(0)
+const maxStepIndex = ref(-1)
+const maxProgress = ref(0)
+
+// 监听进度变化，记录达到的最高进度，防止在循环步骤中跳跃
+watch(() => workflowStatus.value.progress, (newProgress) => {
+  if (newProgress > maxProgress.value) {
+    maxProgress.value = newProgress
+  }
+})
+
+// 计算显示的进度，取当前进度和历史最高进度的最大值
+const displayProgress = computed(() => {
+  return Math.max(workflowStatus.value.progress || 0, maxProgress.value)
+})
+
+// 监听步骤变化，记录达到的最高步骤，防止在循环步骤中跳跃
+watch(() => workflowStatus.value.current_step, (newStep) => {
+  if (!newStep) return
+  const idx = workflowSteps.findIndex(s => s.key === newStep)
+  if (idx > maxStepIndex.value) {
+    maxStepIndex.value = idx
+  }
+})
 
 const phoneStyles = [
   { bg: 'bg-gradient-to-br from-indigo-50 to-pink-50', icon: '🤔', textColor: 'text-slate-800' },
@@ -402,20 +426,25 @@ const workflowSteps = [
 const getStepClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
   const progress = workflowStatus.value.progress
+  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
+
+  // 如果进度是100，所有步骤都显示完成
+  if (progress === 100) {
+    return 'border-green-200 bg-green-50'
+  }
 
   if (!currentStep) {
     return 'border-slate-200 bg-slate-50'
   }
 
-  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
 
-  if (stepIndex < currentIndex) {
-    // 已完成
-    return 'border-green-200 bg-green-50'
-  } else if (stepIndex === currentIndex) {
+  if (stepIndex === currentIndex) {
     // 进行中
     return 'border-blue-500 bg-blue-50 shadow-md'
+  } else if (stepIndex < currentIndex || stepIndex <= maxStepIndex.value) {
+    // 已完成或已达到过
+    return 'border-green-200 bg-green-50'
   } else {
     // 待执行
     return 'border-slate-200 bg-slate-50'
@@ -425,15 +454,18 @@ const getStepClass = (stepKey) => {
 // 获取步骤图标类
 const getStepIconClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
+  const progress = workflowStatus.value.progress
+  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
+
+  if (progress === 100) return 'text-green-600'
   if (!currentStep) return 'text-slate-400'
 
-  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
 
-  if (stepIndex < currentIndex) {
-    return 'text-green-600'
-  } else if (stepIndex === currentIndex) {
+  if (stepIndex === currentIndex) {
     return 'text-blue-600 animate-pulse'
+  } else if (stepIndex < currentIndex || stepIndex <= maxStepIndex.value) {
+    return 'text-green-600'
   } else {
     return 'text-slate-400'
   }
@@ -442,15 +474,18 @@ const getStepIconClass = (stepKey) => {
 // 获取步骤文字类
 const getStepTextClass = (stepKey) => {
   const currentStep = workflowStatus.value.current_step
+  const progress = workflowStatus.value.progress
+  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
+
+  if (progress === 100) return 'text-green-700'
   if (!currentStep) return 'text-slate-500'
 
-  const stepIndex = workflowSteps.findIndex(s => s.key === stepKey)
   const currentIndex = workflowSteps.findIndex(s => s.key === currentStep)
 
-  if (stepIndex < currentIndex) {
-    return 'text-green-700'
-  } else if (stepIndex === currentIndex) {
+  if (stepIndex === currentIndex) {
     return 'text-blue-700'
+  } else if (stepIndex < currentIndex || stepIndex <= maxStepIndex.value) {
+    return 'text-green-700'
   } else {
     return 'text-slate-500'
   }
@@ -547,6 +582,8 @@ const handleStart = async () => {
   // 清空旧数据
   debateLogs.value = []
   xhsPreview.value = { title: '', content: '' }
+  maxStepIndex.value = -1
+  maxProgress.value = 0
   console.log('[HomeView] 🧹 已清空旧日志和预览数据，debateLogs长度:', debateLogs.value.length)
   console.log('[HomeView] 📊 当前store logs长度:', analysisStore.logs.length)
 
