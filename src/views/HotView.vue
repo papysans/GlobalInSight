@@ -109,13 +109,25 @@
                             <div class="flex items-start justify-between gap-4">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 mb-2">
-                                        <span
-                                            class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                                            #{{ idx + 1 }}
+                                        <span :class="[
+                                            'inline-flex items-center justify-center font-black rounded-lg px-2.5 py-1 shadow-sm transition-all duration-200 hover:scale-105',
+                                            idx === 0 
+                                                ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 text-white border-2 border-amber-300 scale-[1.05] shadow-md shadow-amber-200/50' 
+                                                : idx === 1
+                                                ? 'bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 text-white border-2 border-slate-200 scale-[1.02] shadow-md shadow-slate-200/50'
+                                                : idx === 2
+                                                ? 'bg-gradient-to-br from-amber-200 via-orange-200 to-amber-300 text-orange-900 border-2 border-amber-100 shadow-sm'
+                                                : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 text-blue-700 border border-blue-200'
+                                        ]">
+                                            <span class="text-[10px] opacity-90 mr-0.5 font-bold">#</span>
+                                            <span :class="[
+                                                'leading-none font-black',
+                                                idx < 3 ? 'text-sm' : 'text-xs'
+                                            ]">{{ idx + 1 }}</span>
                                         </span>
-                                        <span v-if="topic.platform" class="text-[10px] font-bold text-slate-400">{{
+                                        <span v-if="topic.platform && topic.platform !== 'aligned'" class="text-[10px] font-bold text-slate-400">{{
                                             topic.platform }}</span>
-                                        <span v-if="topic.category" class="text-[10px] font-bold text-slate-400">{{
+                                        <span v-if="topic.category && topic.category !== 'aligned'" class="text-[10px] font-bold text-slate-400">{{
                                             topic.category }}</span>
                                     </div>
                                     <h3 class="text-lg font-bold text-slate-800 line-clamp-2">{{ topic.title }}</h3>
@@ -602,4 +614,21 @@ onMounted(() => {
         transform: translateY(0);
     }
 }
+
+/* 排序标签样式增强 */
+.scale-102 {
+    transform: scale(1.02);
+}
+
+/* 前3名标签的微妙闪烁动画 */
+@keyframes rankPulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    50% {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+}
+
+/* 为前3名添加微妙的脉冲效果（可选，如果觉得太花哨可以去掉） */
 </style>
