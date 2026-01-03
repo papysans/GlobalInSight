@@ -48,7 +48,6 @@ export const useAnalysisStore = defineStore("analysis", {
             { code: "tieba", name: "贴吧" },
             { code: "zhihu", name: "知乎" },
             { code: "hn", name: "Hacker News" },
-            { code: "reddit", name: "Reddit" },
         ],
     },
 

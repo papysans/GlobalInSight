@@ -1,14 +1,14 @@
 <template>
   <div class="view-section animate-fade-in py-12 px-4">
     <div class="max-w-3xl mx-auto space-y-6">
+
       <!-- 热榜配置 -->
-      <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <!-- <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2">
           <Flame class="w-5 h-5 text-orange-600" />
           <h2 class="font-bold text-slate-800">热榜数据源配置</h2>
         </div>
         <div class="p-6 md:p-8 space-y-6">
-          <!-- 启用/禁用开关 -->
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-sm font-bold text-slate-700">启用热榜功能</h3>
@@ -21,7 +21,6 @@
             </label>
           </div>
 
-          <!-- 平台选择 -->
           <div>
             <h3 class="text-sm font-bold text-slate-700 mb-3">平台数据源选择</h3>
             <p class="text-xs text-slate-500 mb-4">不选择则表示收集所有平台的数据</p>
@@ -44,7 +43,6 @@
             </div>
           </div>
 
-          <!-- 更新频率 -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-2">更新频率</label>
@@ -57,7 +55,6 @@
               <p class="text-xs text-slate-400 mt-1">系统将每隔指定时间自动收集一次热榜数据</p>
             </div>
 
-            <!-- 缓存时间 -->
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-2">数据缓存时间</label>
               <div class="flex items-center gap-2">
@@ -70,7 +67,6 @@
             </div>
           </div>
 
-          <!-- 每个平台最大条数 -->
           <div>
             <label class="block text-sm font-bold text-slate-700 mb-2">每平台最大条数</label>
             <input v-model.number="hotNewsConfig.max_items_per_platform" type="number" min="10" max="500"
@@ -79,14 +75,13 @@
             <p class="text-xs text-slate-400 mt-1">每个平台每次收集的最大话题条数</p>
           </div>
 
-          <!-- 保存状态提示 -->
           <div v-if="hotNewsConfigSaved"
             class="p-3 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700 flex items-center gap-2">
             <Check class="w-4 h-4" />
             <span>热榜配置已保存</span>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- 平台选择设置 -->
       <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
