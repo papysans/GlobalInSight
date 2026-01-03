@@ -16,10 +16,10 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <button @click="refreshTrending({ forceRefresh: true })"
-                            class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-colors text-xs font-bold flex items-center gap-1"
+                            class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-colors text-xs font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             :disabled="isLoading">
                             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-                            刷新热榜
+                            {{ isLoading ? '刷新中...' : '刷新热榜' }}
                         </button>
                         <button @click="switchTab('home')"
                             class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-bold flex items-center gap-1">
@@ -238,6 +238,11 @@ const selectedCategory = ref('all')
 const sortBy = ref('heat')
 const searchQuery = ref('')
 
+// 防抖相关
+const debounceTimer = ref(null)
+const lastRefreshTime = ref(0)
+const DEBOUNCE_DELAY = 1000 // 防抖延迟时间（毫秒），1秒内只执行一次
+
 // Platforms and Categories
 const platformList = ref([
     { id: 'all', name: '全榜' },
@@ -335,8 +340,17 @@ const parseHeatValue = (raw) => {
     return { score, display: text }
 }
 
-const refreshTrending = async ({ forceRefresh = false } = {}) => {
+// 实际的刷新函数（内部实现）
+const _refreshTrending = async ({ forceRefresh = false } = {}) => {
+    // 如果正在加载中，直接返回
+    if (isLoading.value) {
+        console.log('⏸️ 刷新请求已在进行中，跳过本次请求')
+        return
+    }
+
     isLoading.value = true
+    lastRefreshTime.value = Date.now()
+    
     try {
         const apiUrl = 'http://127.0.0.1:8000/api'
         // 构建请求体，包含选中的平台
@@ -398,6 +412,37 @@ const refreshTrending = async ({ forceRefresh = false } = {}) => {
         alert('加载热榜失败: ' + error.message)
     } finally {
         isLoading.value = false
+    }
+}
+
+// 带防抖的刷新函数（对外暴露）
+const refreshTrending = ({ forceRefresh = false } = {}) => {
+    // 如果正在加载中，直接返回
+    if (isLoading.value) {
+        console.log('⏸️ 刷新请求已在进行中，跳过本次请求')
+        return
+    }
+
+    // 清除之前的定时器
+    if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value)
+        debounceTimer.value = null
+    }
+
+    const now = Date.now()
+    const timeSinceLastRefresh = now - lastRefreshTime.value
+
+    // 如果距离上次刷新时间超过防抖延迟，立即执行
+    if (timeSinceLastRefresh >= DEBOUNCE_DELAY) {
+        _refreshTrending({ forceRefresh })
+    } else {
+        // 否则延迟执行，等待防抖时间
+        const remainingTime = DEBOUNCE_DELAY - timeSinceLastRefresh
+        console.log(`⏳ 防抖中，将在 ${remainingTime}ms 后执行刷新`)
+        debounceTimer.value = setTimeout(() => {
+            _refreshTrending({ forceRefresh })
+            debounceTimer.value = null
+        }, remainingTime)
     }
 }
 

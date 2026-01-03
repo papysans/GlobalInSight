@@ -9,7 +9,6 @@ TopHub 全网热点新闻收集器
 import asyncio
 import httpx
 import re
-import os
 from datetime import datetime
 from typing import List, Dict, Optional
 from loguru import logger
@@ -77,17 +76,6 @@ class TopHubCollector:
             "Upgrade-Insecure-Requests": "1",
         }
         
-        # 从环境变量读取代理设置
-        self.proxy = None
-        # TODO: 暂时禁用代理配置，等待代理问题解决后恢复
-        # http_proxy = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-        # https_proxy = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-        # if http_proxy or https_proxy:
-        #     # 优先使用 https，其次 http
-        #     self.proxy = https_proxy or http_proxy
-        #     logger.info(f"已配置代理: {self.proxy}")
-        logger.info("代理已暂时禁用，直接连接")
-        
         # 尝试加载浏览器 Cookie
         self._load_cookies()
         
@@ -132,11 +120,12 @@ class TopHubCollector:
         url = f"{self.base_url}/hot" if source_id == "hot" else f"{self.base_url}/n/{source_id}"
         
         try:
-            # 发送请求
+            # 发送请求（不使用代理，直接连接）
+            # 不传 proxy 参数（默认为 None），设置 trust_env=False 禁用环境变量中的代理
             async with httpx.AsyncClient(
                 timeout=30.0,
                 follow_redirects=True,
-                proxy=self.proxy
+                trust_env=False  # 不信任环境变量，避免从环境变量读取代理配置
             ) as client:
                 response = await client.get(url, headers=self.headers)
                 response.raise_for_status()
