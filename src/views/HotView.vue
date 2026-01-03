@@ -322,12 +322,112 @@ const platformList = ref([
 
 const categoryList = ref([
     { id: 'all', name: '综合' },
-    { id: 'society', name: '社会' },
     { id: 'ent', name: '娱乐' },
-    { id: 'finance', name: '财经' },
+    { id: 'society', name: '社会' },
     { id: 'tech', name: '科技' },
-    { id: 'intl', name: '国际' }
+    { id: 'intl', name: '国际' },
+    { id: 'finance', name: '财经' }
 ])
+
+// 关键词分类规则（基于实际新闻标题分析）
+const categoryKeywords = {
+    ent: [
+        // 娱乐明星/人物
+        '明星', '演员', '歌手', '艺人', '偶像', '网红', '博主', 'up主', '主播',
+        '何同学', '潘晓婷', '白冰', '梁立', '羊驼',
+        // 娱乐内容
+        '电影', '电视剧', '综艺', '音乐', '歌曲', 'MV', '演唱会', '舞台', '表演',
+        '钢琴', '台球', '游戏', '电竞', '直播', '短视频', 'vlog', '测评', '开箱',
+        '烟花', '跨年', '过年', '春节', '春晚', '节日', '庆祝',
+        // 娱乐标签
+        '#', 'bgm', '配乐', '跳舞', '舞蹈', '搞笑', '段子', '梗', '表情包'
+    ],
+    society: [
+        // 社会事件
+        '交警', '警察', '公安', '民警', '执法', '治安', '安全', '事故', '车祸', '交通',
+        '教育', '学校', '学生', '老师', '考试', '高考', '中考', '大学', '毕业',
+        '医疗', '医院', '医生', '健康', '疫情', '疫苗', '治疗', '手术',
+        '民生', '政策', '法规', '法律', '法院', '判决', '起诉', '维权',
+        '社会', '民生', '生活', '日常', '百姓', '群众', '市民',
+        '过年', '回家', '回村', '春运', '假期', '放假',
+        '赶海', '渔民', '农民', '农村', '乡村', '城市'
+    ],
+    tech: [
+        // 科技产品
+        'AI', '人工智能', 'ChatGPT', 'GPT', '大模型', '深度学习', '机器学习',
+        '芯片', '半导体', 'CPU', 'GPU', '处理器',
+        '手机', 'iPhone', '华为', '小米', 'OPPO', 'vivo', '三星',
+        '电脑', '笔记本', '平板', 'iPad',
+        // 科技公司
+        '苹果', '微软', '谷歌', 'Meta', 'OpenAI', 'DeepSeek', '字节', '腾讯', '阿里', '百度',
+        // 科技概念
+        '算法', '代码', '编程', '开发', '软件', '应用', 'APP', '系统', '操作系统',
+        '互联网', '网络', '5G', '6G', '物联网', '区块链', '加密货币', '比特币',
+        '开源', 'GitHub', '技术', '创新', '研发', '科技', '数字化', '智能化',
+        'Hacker News', 'HN', '程序员', '工程师'
+    ],
+    intl: [
+        // 国际人物
+        '特朗普', '拜登', '普京', '马克龙', '默克尔', '安倍', '金正恩',
+        // 国际地区
+        '美国', '中国', '俄罗斯', '英国', '法国', '德国', '日本', '韩国', '朝鲜',
+        '欧洲', '欧盟', '北约', '联合国', '世卫', 'WTO',
+        '委内瑞拉', '伊朗', '以色列', '巴勒斯坦', '乌克兰', '俄罗斯',
+        // 国际事件
+        '外交', '贸易', '制裁', '战争', '冲突', '和平', '谈判', '协议',
+        '总统', '总理', '首相', '领导人', '政府', '议会', '选举', '投票',
+        '国际', '全球', '世界', '海外', '境外'
+    ],
+    finance: [
+        // 金融概念
+        '股价', '股市', '股票', 'A股', '港股', '美股', '纳斯达克', '道琼斯',
+        '投资', '基金', '理财', '银行', '贷款', '利率', '汇率', '货币',
+        '经济', 'GDP', '通胀', '通缩', '消费', '消费', '市场', '交易',
+        '公司', '企业', '上市', 'IPO', '财报', '业绩', '利润', '营收',
+        '房地产', '房价', '楼市', '买房', '卖房',
+        '油价', '能源', '石油', '天然气', '电力',
+        '财经', '金融', '商业', '创业', '融资'
+    ]
+}
+
+// 根据标题自动分类（基于关键词匹配）
+const classifyTopic = (title) => {
+    if (!title || typeof title !== 'string') return 'all'
+    
+    const titleLower = title.toLowerCase()
+    const titleText = titleLower.replace(/[#@]/g, ' ') // 移除标签符号，避免误匹配
+    
+    // 计算每个分类的匹配分数（支持部分匹配）
+    const scores = {}
+    for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+        let score = 0
+        for (const keyword of keywords) {
+            const keywordLower = keyword.toLowerCase()
+            // 完全匹配权重更高
+            if (titleText.includes(keywordLower)) {
+                // 如果关键词较长（>=3字符），权重更高
+                score += keywordLower.length >= 3 ? 2 : 1
+            }
+        }
+        if (score > 0) {
+            scores[cat] = score
+        }
+    }
+    
+    // 返回得分最高的分类，如果都没有匹配或得分太低则返回 'all'
+    if (Object.keys(scores).length === 0) {
+        return 'all'
+    }
+    
+    const maxScore = Math.max(...Object.values(scores))
+    // 如果最高分太低（< 2），可能是误匹配，返回 'all'
+    if (maxScore < 2) {
+        return 'all'
+    }
+    
+    const topCategory = Object.keys(scores).find(cat => scores[cat] === maxScore)
+    return topCategory || 'all'
+}
 
 // Computed
 const filteredTopics = computed(() => {
@@ -503,16 +603,20 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
                     sourceHost = platformDisplay
                 }
 
+                const newsTitle = news.title || `话题 #${idx + 1}`
+                // 使用关键词匹配自动分类
+                const autoCategory = classifyTopic(newsTitle)
+                
                 return {
                     id: topicId,
-                    title: news.title || `话题 #${idx + 1}`,
+                    title: newsTitle,
                     description: keywords.length ? `关键词：${keywords.slice(0, 6).join(' / ')}` : '',
                     platform_id: news.source_id || 'aligned',
                     platform: platformDisplay,
                     heat_score: Number.isFinite(news.hot_score) ? news.hot_score : heat.score,
                     heat_display: heatDisplay || heat.display,
                     rank: news.rank || (idx + 1),
-                    category: news.category || 'aligned',
+                    category: autoCategory, // 使用自动分类结果
                     source: sourceHost,
                     url: primaryUrl,
                     growth: typeof news.growth === 'number' ? news.growth : 0,
