@@ -6,9 +6,10 @@
         <p class="text-slate-500">生成式数据可视化卡片 (Generative Data Cards)</p>
       </div>
 
-      <div class="relative grid lg:grid-cols-12 gap-8 items-start">
+      <div class="relative grid lg:grid-cols-12 gap-6 items-start">
+        <!-- 数据锁定提示（仅针对舆情推演数据） -->
         <div
-          v-if="!dataUnlocked"
+          v-if="!dataUnlocked && dataSource === 'workflow'"
           class="absolute inset-0 z-20 rounded-3xl locked-overlay flex flex-col items-center justify-center text-center p-8"
         >
           <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
@@ -27,22 +28,108 @@
         <!-- Left: Control Panel -->
         <div
           :class="[
-            'lg:col-span-4 space-y-6 transition-all duration-500',
-            !dataUnlocked ? 'filter blur-sm' : ''
+            'lg:col-span-3 space-y-4 transition-all duration-500',
+            (!dataUnlocked && dataSource === 'workflow') ? 'filter blur-sm' : ''
           ]"
         >
+          <!-- 数据源选择 -->
+          <div class="bg-white p-4 rounded-xl shadow-lg border border-slate-200">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+              <Database class="w-4 h-4 text-indigo-600" />
+              数据源
+            </h3>
+            <div class="space-y-1.5">
+              <button
+                @click="dataSource = 'workflow'"
+                :class="[
+                  'w-full text-left px-3 py-2 rounded-lg border-2 transition-all text-sm',
+                  dataSource === 'workflow'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                ]"
+              >
+                <div class="flex items-center gap-2">
+                  <div :class="['w-1.5 h-1.5 rounded-full', dataSource === 'workflow' ? 'bg-indigo-500' : 'bg-slate-300']"></div>
+                  <span class="font-medium text-xs">舆情推演</span>
+                </div>
+              </button>
+              <button
+                @click="dataSource = 'hotnews'"
+                :class="[
+                  'w-full text-left px-3 py-2 rounded-lg border-2 transition-all text-sm',
+                  dataSource === 'hotnews'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                ]"
+              >
+                <div class="flex items-center gap-2">
+                  <div :class="['w-1.5 h-1.5 rounded-full', dataSource === 'hotnews' ? 'bg-indigo-500' : 'bg-slate-300']"></div>
+                  <span class="font-medium text-xs">热点系统</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 热点选择器（仅热点数据源时显示） -->
+          <div v-if="dataSource === 'hotnews'" class="bg-white p-4 rounded-xl shadow-lg border border-slate-200">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+              <TrendingUp class="w-4 h-4 text-orange-600" />
+              选择热点
+            </h3>
+            <div v-if="isLoadingHotNews" class="text-center py-3 text-xs text-slate-500">
+              <div class="animate-spin w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              加载中...
+            </div>
+            <div v-else-if="hotNewsList.length === 0" class="text-center py-3 text-xs text-slate-500">
+              暂无数据
+              <button
+                @click="loadHotNews"
+                class="mt-2 text-orange-600 hover:text-orange-700 underline text-xs"
+              >
+                刷新
+              </button>
+            </div>
+            <div v-else class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+              <button
+                v-for="item in hotNewsList.slice(0, 8)"
+                :key="item.id"
+                @click="selectHotTopic(item)"
+                :class="[
+                  'w-full text-left px-2.5 py-1.5 rounded-lg border transition-all text-xs',
+                  selectedHotTopic?.id === item.id
+                    ? 'bg-orange-50 border-orange-300 text-orange-900'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                ]"
+              >
+                <div class="font-medium truncate">{{ item.title }}</div>
+                <div class="text-[10px] text-slate-500 mt-0.5 truncate">
+                  {{ item.platform || '多平台' }} · {{ item.hot_value || '热度未知' }}
+                </div>
+              </button>
+            </div>
+            <button
+              @click="loadHotNews"
+              class="mt-2 w-full px-2.5 py-1.5 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg transition-colors"
+            >
+              <RefreshCw class="w-3 h-3 inline mr-1" />
+              刷新
+            </button>
+          </div>
+
+          <!-- 图表数据选择 -->
           <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
             <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <LayoutGrid class="w-5 h-5 text-blue-600" /> 图表数据选择
+              <LayoutGrid class="w-5 h-5 text-blue-600" />
+              图表数据选择
             </h3>
             <div class="space-y-3">
               <button
-                v-for="option in dataOptions"
+                v-for="option in availableDataOptions"
                 :key="option.type"
                 @click="selectDataType(option.type)"
                 :class="[
                   'data-btn w-full text-left px-4 py-3 rounded-xl bg-white text-slate-600 border border-slate-200 font-medium hover:bg-slate-50 transition-colors flex justify-between items-center group shadow-sm',
-                  selectedDataType === option.type ? 'btn-selected' : ''
+                  selectedDataType === option.type ? 'btn-selected border-blue-500 bg-blue-50' : ''
                 ]"
               >
                 <div class="flex items-center gap-3">
@@ -59,41 +146,13 @@
             </div>
           </div>
 
-          <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Edit3 class="w-5 h-5 text-slate-600" /> 卡片文本编辑
+          <!-- 风格配色 -->
+          <div class="bg-white p-4 rounded-xl shadow-lg border border-slate-200">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+              <Palette class="w-4 h-4 text-pink-500" />
+              配色方案
             </h3>
-            <div class="space-y-3">
-              <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
-                  主标题 (Main Title)
-                </label>
-                <input
-                  v-model="posterTitle"
-                  type="text"
-                  @input="updateChart"
-                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 outline-none font-bold text-slate-700"
-                />
-              </div>
-              <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
-                  副标题 (Subtitle)
-                </label>
-                <input
-                  v-model="posterSubtitle"
-                  type="text"
-                  @input="updateChart"
-                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 outline-none text-slate-600"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Palette class="w-5 h-5 text-pink-500" /> 风格配色
-            </h3>
-            <div class="grid grid-cols-5 gap-2">
+            <div class="grid grid-cols-5 gap-1.5">
               <div
                 v-for="theme in themes"
                 :key="theme.name"
@@ -102,10 +161,59 @@
                   'theme-btn w-full aspect-square rounded-full border cursor-pointer shadow-sm transition-all',
                   theme.bg,
                   theme.border,
-                  selectedTheme === theme.name ? 'active ring-2 ring-blue-500' : ''
+                  selectedTheme === theme.name ? 'active ring-2 ring-blue-500 scale-110' : ''
                 ]"
                 :title="theme.label"
               ></div>
+            </div>
+          </div>
+
+          <!-- Agent信息展示（仅舆情推演数据源时显示，紧凑版） -->
+          <div v-if="dataSource === 'workflow' && agentInfo.agent_name" class="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl shadow-lg border border-indigo-100">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+              <BrainCircuit class="w-4 h-4 text-indigo-600" />
+              Agent信息
+            </h3>
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-600 text-xs">Agent:</span>
+                <span class="font-bold text-indigo-700 text-xs">{{ agentInfo.agent_name.toUpperCase() }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-600 text-xs">LLM:</span>
+                <span :class="[
+                  'px-1.5 py-0.5 rounded text-[10px] font-medium',
+                  agentInfo.used_llm 
+                    ? 'bg-emerald-100 text-emerald-700' 
+                    : 'bg-slate-100 text-slate-600'
+                ]">
+                  {{ agentInfo.used_llm ? '✓' : '✗' }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-600 text-xs">缓存:</span>
+                <span :class="[
+                  'px-1.5 py-0.5 rounded text-[10px] font-medium',
+                  agentInfo.cache_hit 
+                    ? 'bg-amber-100 text-amber-700' 
+                    : 'bg-blue-100 text-blue-700'
+                ]">
+                  {{ agentInfo.cache_hit ? '✓' : '✗' }}
+                </span>
+              </div>
+              
+              <!-- LLM生成内容展示（紧凑版） -->
+              <div v-if="agentInfo.used_llm && agentInfo.llm_reasoning" class="pt-2 border-t border-indigo-200">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles class="w-3 h-3 text-indigo-600" />
+                  <span class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">LLM内容</span>
+                </div>
+                <div class="bg-gradient-to-br from-white to-indigo-50/30 rounded-lg p-2 border border-indigo-200 max-h-32 overflow-y-auto custom-scrollbar shadow-inner">
+                  <p class="text-[10px] text-slate-700 leading-relaxed font-mono whitespace-pre-wrap break-words">
+                    {{ agentInfo.llm_reasoning }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -113,12 +221,23 @@
         <!-- Right: Preview & Export -->
         <div
           :class="[
-            'lg:col-span-8 flex flex-col gap-6 transition-all duration-500',
-            !dataUnlocked ? 'filter blur-sm' : ''
+            'lg:col-span-9 flex flex-col gap-6 transition-all duration-500',
+            (!dataUnlocked && dataSource === 'workflow') ? 'filter blur-sm' : ''
           ]"
         >
           <div class="flex justify-center bg-slate-100 rounded-3xl p-8 border border-slate-200 relative overflow-hidden">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            
+            <!-- 加载遮罩 -->
+            <div
+              v-if="isChartLoading"
+              class="absolute inset-0 z-30 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-3xl transition-opacity duration-300"
+            >
+              <div class="text-center">
+                <Loader2 class="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
+                <p class="text-sm text-slate-700 font-medium">正在生成图表...</p>
+              </div>
+            </div>
             
             <div class="relative w-full max-w-[480px] poster-container bg-white rounded-xl overflow-hidden shadow-2xl transform transition hover:scale-[1.01] duration-300">
               <canvas ref="canvasRef" class="w-full h-full"></canvas>
@@ -145,22 +264,46 @@ import { useAnalysisStore } from '../stores/analysis'
 import { api } from '../api'
 import {
   Lock, LayoutGrid, ChevronRight, Edit3, Palette, Download,
-  ArrowLeftRight, PieChart, Cloud
+  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2
 } from 'lucide-vue-next'
 import { Chart, registerables } from 'chart.js'
 
 Chart.register(...registerables)
 
+// 防抖函数
+const debounce = (fn, delay = 300) => {
+  let timer = null
+  return function(...args) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+    }, delay)
+  }
+}
+
 const emit = defineEmits(['switch-tab'])
 
 const analysisStore = useAnalysisStore()
 const dataUnlocked = computed(() => analysisStore.dataUnlocked)
+
+// 数据源：'workflow' 或 'hotnews'
+const dataSource = ref('workflow')
 const selectedDataType = ref('contrast')
 const posterTitle = ref('中外舆论温差')
 const posterSubtitle = ref('GrandChart 独家数据洞察')
 const selectedTheme = ref('white')
 const canvasRef = ref(null)
 let chartInstance = null
+
+// 加载状态
+const isChartLoading = ref(false)
+const isSwitchingDataSource = ref(false)
+
+// 热点数据相关
+const hotNewsList = ref([])
+const selectedHotTopic = ref(null)
+const isLoadingHotNews = ref(false)
+const platformHeatData = ref({}) // 平台热度数据
 
 // 数据状态
 const contrastData = ref({ domestic: [65, 20, 15], intl: [30, 40, 30] })
@@ -179,29 +322,54 @@ const keywordsData = ref([
 ])
 const isLoadingData = ref(false)
 
-const dataOptions = [
+// Agent信息状态
+const agentInfo = ref({
+  agent_name: '',
+  used_llm: false,
+  cache_hit: false,
+  llm_reasoning: ''  // LLM生成的内容片段
+})
+
+// 所有可用的图表选项
+const allDataOptions = [
   {
     type: 'contrast',
     title: '中外舆论温差',
     subtitle: 'Domestic vs Intl Sentiment',
     icon: ArrowLeftRight,
-    color: 'bg-blue-100 text-blue-600'
+    color: 'bg-blue-100 text-blue-600',
+    availableFor: ['workflow']
   },
   {
     type: 'sentiment',
     title: '网民情感光谱',
     subtitle: 'Emotional Spectrum',
     icon: PieChart,
-    color: 'bg-purple-100 text-purple-600'
+    color: 'bg-purple-100 text-purple-600',
+    availableFor: ['workflow']
   },
   {
     type: 'keywords',
     title: '高频关键词云',
     subtitle: 'Keyword Frequency',
     icon: Cloud,
-    color: 'bg-emerald-100 text-emerald-600'
+    color: 'bg-emerald-100 text-emerald-600',
+    availableFor: ['workflow']
+  },
+  {
+    type: 'platform-heat',
+    title: '平台热度对比',
+    subtitle: 'Platform Heat Comparison',
+    icon: BarChart3,
+    color: 'bg-orange-100 text-orange-600',
+    availableFor: ['hotnews']
   }
 ]
+
+// 根据数据源过滤可用的图表选项
+const availableDataOptions = computed(() => {
+  return allDataOptions.filter(opt => opt.availableFor.includes(dataSource.value))
+})
 
 const themes = [
   { name: 'white', label: '简约白', bg: 'bg-slate-50', border: 'border-slate-200' },
@@ -219,44 +387,152 @@ const POSTER_THEMES = {
   dark: { bgStart: '#1e293b', bgEnd: '#0f172a', text: '#f8fafc', accent: '#818cf8', grid: 'rgba(255,255,255,0.1)', colors: ['#818cf8', '#a5b4fc'] }
 }
 
+// 加载热点新闻列表
+const loadHotNews = async () => {
+  isLoadingHotNews.value = true
+  try {
+    const result = await api.getHotNewsTrending({ platforms: ['all'], force_refresh: false })
+    if (result.success && result.news_list) {
+      hotNewsList.value = result.news_list
+      if (hotNewsList.value.length > 0 && !selectedHotTopic.value) {
+        selectHotTopic(hotNewsList.value[0])
+      }
+    }
+  } catch (err) {
+    console.error('加载热点数据失败:', err)
+  } finally {
+    isLoadingHotNews.value = false
+  }
+}
+
+// 选择热点话题（带防抖和加载状态）
+const selectHotTopicDebounced = debounce(async (topic) => {
+  if (isChartLoading.value) return
+  
+  selectedHotTopic.value = topic
+  isChartLoading.value = true
+  
+  try {
+    // 解析平台热度数据
+    if (topic.platforms_data && Array.isArray(topic.platforms_data)) {
+      const platformMap = {}
+      topic.platforms_data.forEach(p => {
+        const platformName = p.platform || p.platform_id || '未知平台'
+        // 尝试解析热度值
+        const hotValue = p.hot_value || p.hot_score || 0
+        let heatScore = 0
+        if (typeof hotValue === 'number') {
+          heatScore = hotValue
+        } else if (typeof hotValue === 'string') {
+          // 尝试从字符串中提取数字
+          const match = hotValue.match(/([\d,.]+)/)
+          if (match) {
+            heatScore = parseFloat(match[1].replace(/,/g, '')) || 0
+          }
+        }
+        platformMap[platformName] = heatScore
+      })
+      platformHeatData.value = platformMap
+    } else {
+      // 如果没有 platforms_data，尝试从 evidence 中提取
+      platformHeatData.value = {}
+      if (topic.evidence && Array.isArray(topic.evidence)) {
+        const platformMap = {}
+        topic.evidence.forEach(ev => {
+          const platformName = ev.platform || '未知平台'
+          platformMap[platformName] = (platformMap[platformName] || 0) + 1
+        })
+        platformHeatData.value = platformMap
+      }
+    }
+    
+    // 更新标题
+    posterTitle.value = topic.title || '平台热度对比'
+    posterSubtitle.value = `覆盖 ${Object.keys(platformHeatData.value).length} 个平台`
+    
+    // 如果当前选中的是平台热度对比图表，更新图表
+    if (selectedDataType.value === 'platform-heat') {
+      await nextTick()
+      await updateChart(true)
+    }
+  } finally {
+    // 延迟一点再隐藏，确保动画可见
+    setTimeout(() => {
+      isChartLoading.value = false
+    }, 100)
+  }
+}, 200)
+
+const selectHotTopic = (topic) => {
+  selectHotTopicDebounced(topic)
+}
+
 // 生成数据的函数
 const generateData = async (type) => {
   if (isLoadingData.value) return
   
-  // 从日志中获取议题
-  const systemLog = analysisStore.logs.find(log => log.agent_name === 'System')
-  const topic = (systemLog && systemLog.step_content) || '当前议题'
-  const insight = analysisStore.insight || '核心洞察'
-  
-  if (!insight || insight.trim() === '') {
-    console.warn('洞察内容为空，无法生成数据')
-    return
-  }
-  
-  isLoadingData.value = true
-  try {
-    if (type === 'contrast') {
-      const data = await api.generateContrastData({ topic, insight })
-      contrastData.value = data
-      // 更新标题和副标题
-      if (analysisStore.insightTitle) {
-        posterTitle.value = analysisStore.insightTitle
-      }
-      if (analysisStore.insightSubtitle) {
-        posterSubtitle.value = analysisStore.insightSubtitle
-      }
-    } else if (type === 'sentiment') {
-      const data = await api.generateSentimentData({ topic, insight })
-      sentimentData.value = data.emotions
-    } else if (type === 'keywords') {
-      const data = await api.generateKeywordsData({ topic })
-      keywordsData.value = data.keywords
+  if (dataSource.value === 'workflow') {
+    // 舆情推演数据生成逻辑（原有逻辑）
+    const systemLog = analysisStore.logs.find(log => log.agent_name === 'System')
+    const topic = (systemLog && systemLog.step_content) || '当前议题'
+    const insight = analysisStore.insight || '核心洞察'
+    
+    if (!insight || insight.trim() === '') {
+      console.warn('洞察内容为空，无法生成数据')
+      return
     }
-    updateChart()
-  } catch (err) {
-    console.error('生成数据失败:', err)
-  } finally {
-    isLoadingData.value = false
+    
+    isLoadingData.value = true
+    try {
+      if (type === 'contrast') {
+        const data = await api.generateContrastData({ topic, insight })
+        contrastData.value = data
+        // 保存Agent信息
+        agentInfo.value = {
+          agent_name: data.agent_name || 'analyst',
+          used_llm: data.used_llm !== undefined ? data.used_llm : true,
+          cache_hit: data.cache_hit !== undefined ? data.cache_hit : false,
+          llm_reasoning: data.llm_reasoning || ''
+        }
+        if (analysisStore.insightTitle) {
+          posterTitle.value = analysisStore.insightTitle
+        }
+        if (analysisStore.insightSubtitle) {
+          posterSubtitle.value = analysisStore.insightSubtitle
+        }
+      } else if (type === 'sentiment') {
+        const data = await api.generateSentimentData({ topic, insight })
+        sentimentData.value = data.emotions
+        // 保存Agent信息
+        agentInfo.value = {
+          agent_name: data.agent_name || 'analyst',
+          used_llm: data.used_llm !== undefined ? data.used_llm : true,
+          cache_hit: data.cache_hit !== undefined ? data.cache_hit : false,
+          llm_reasoning: data.llm_reasoning || ''
+        }
+      } else if (type === 'keywords') {
+        const data = await api.generateKeywordsData({ topic })
+        keywordsData.value = data.keywords
+        // 保存Agent信息
+        agentInfo.value = {
+          agent_name: data.agent_name || 'analyst',
+          used_llm: data.used_llm !== undefined ? data.used_llm : true,
+          cache_hit: data.cache_hit !== undefined ? data.cache_hit : false,
+          llm_reasoning: data.llm_reasoning || ''
+        }
+      }
+      updateChart()
+    } catch (err) {
+      console.error('生成数据失败:', err)
+    } finally {
+      isLoadingData.value = false
+    }
+  } else if (dataSource.value === 'hotnews') {
+    // 热点数据：平台热度对比直接使用已加载的数据
+    if (type === 'platform-heat' && selectedHotTopic.value) {
+      // 数据已在 selectHotTopic 中处理
+      updateChart(true) // 显示加载动画
+    }
   }
 }
 
@@ -264,11 +540,23 @@ const initChart = async () => {
   await nextTick()
   if (!canvasRef.value) return
 
-  const ctx = canvasRef.value.getContext('2d')
-  const theme = POSTER_THEMES[selectedTheme.value]
+  // 如果已经在加载中，不重复设置
+  const wasAlreadyLoading = isChartLoading.value
+  if (!wasAlreadyLoading) {
+    isChartLoading.value = true
+  }
+  
+  try {
+    // 添加小延迟，让加载动画可见
+    if (!wasAlreadyLoading) {
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
+    
+    const ctx = canvasRef.value.getContext('2d')
+    const theme = POSTER_THEMES[selectedTheme.value]
 
-  // Custom plugin for poster background
-  const posterPlugin = {
+    // Custom plugin for poster background
+    const posterPlugin = {
     id: 'posterBackground',
     beforeDraw: (chart) => {
       const ctx = chart.ctx
@@ -351,7 +639,7 @@ const initChart = async () => {
           borderWidth: 0
         }]
       }
-    } else {
+    } else if (selectedDataType.value === 'keywords') {
       return {
         labels: keywordsData.value.map(item => item.word),
         datasets: [{
@@ -361,10 +649,41 @@ const initChart = async () => {
           borderRadius: 6
         }]
       }
+    } else if (selectedDataType.value === 'platform-heat') {
+      // 平台热度对比
+      const platforms = Object.keys(platformHeatData.value)
+      const values = Object.values(platformHeatData.value)
+      // 如果数据为空，使用示例数据
+      if (platforms.length === 0) {
+        return {
+          labels: ['微博', 'B站', '知乎', '抖音', '百度'],
+          datasets: [{
+            label: '热度',
+            data: [0, 0, 0, 0, 0],
+            backgroundColor: theme.accent,
+            borderRadius: 6
+          }]
+        }
+      }
+      return {
+        labels: platforms,
+        datasets: [{
+          label: '热度',
+          data: values,
+          backgroundColor: theme.accent,
+          borderRadius: 6
+        }]
+      }
     }
   }
 
-  const chartType = selectedDataType.value === 'sentiment' ? 'doughnut' : 'bar'
+  let chartType = 'bar'
+  if (selectedDataType.value === 'sentiment') {
+    chartType = 'doughnut'
+  } else if (selectedDataType.value === 'platform-heat' || selectedDataType.value === 'keywords') {
+    chartType = 'bar'
+  }
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -393,49 +712,116 @@ const initChart = async () => {
     chartOptions.indexAxis = 'x'
   } else if (selectedDataType.value === 'sentiment') {
     chartOptions.scales = { x: { display: false }, y: { display: false } }
+  } else if (selectedDataType.value === 'platform-heat') {
+    chartOptions.indexAxis = 'y'
+    chartOptions.scales = {
+      x: {
+        grid: { color: theme.grid },
+        border: { display: false }
+      },
+      y: { grid: { display: false } }
+    }
+  } else if (selectedDataType.value === 'keywords') {
+    // 关键词云：显示y轴标签（关键词名称），隐藏x轴
+    chartOptions.indexAxis = 'y'
+    chartOptions.scales = {
+      x: { 
+        display: false,
+        grid: { display: false }
+      },
+      y: { 
+        display: true,
+        grid: { display: false },
+        ticks: {
+          color: theme.text,
+          font: {
+            size: 12,
+            weight: 'bold'
+          },
+          mirror: false,
+          padding: 8
+        }
+      }
+    }
   } else {
     chartOptions.indexAxis = 'y'
     chartOptions.scales = { x: { display: false }, y: { display: false } }
   }
 
-  if (chartInstance) {
-    chartInstance.destroy()
-  }
+    if (chartInstance) {
+      chartInstance.destroy()
+    }
 
-  chartInstance = new Chart(ctx, {
-    type: chartType,
-    data: getChartData(),
-    options: chartOptions,
-    plugins: [posterPlugin]
-  })
+    chartInstance = new Chart(ctx, {
+      type: chartType,
+      data: getChartData(),
+      options: chartOptions,
+      plugins: [posterPlugin]
+    })
+    
+    // 确保图表渲染完成后再隐藏加载状态
+    await nextTick()
+  } finally {
+    // 隐藏加载状态（只有我们设置的才清除）
+    if (!wasAlreadyLoading) {
+      // 延迟一点再隐藏，确保动画可见
+      setTimeout(() => {
+        isChartLoading.value = false
+      }, 50)
+    }
+  }
 }
 
-const selectDataType = async (type) => {
+// 选择图表类型（带防抖）
+const selectDataTypeDebounced = debounce(async (type) => {
+  if (isChartLoading.value) return
+  
   selectedDataType.value = type
-  if (type === 'contrast') {
-    posterTitle.value = analysisStore.insightTitle || '中外舆论温差'
-    posterSubtitle.value = analysisStore.insightSubtitle || 'GrandChart · 舆情全域扫描'
-    await generateData('contrast')
-  } else if (type === 'sentiment') {
-    posterTitle.value = '网民情感光谱'
-    posterSubtitle.value = 'GrandChart · 情绪极化分析'
-    await generateData('sentiment')
-  } else {
-    posterTitle.value = '核心关键词云'
-    posterSubtitle.value = 'GrandChart · 高频词汇捕捉'
-    await generateData('keywords')
+  isChartLoading.value = true
+  
+  try {
+    if (dataSource.value === 'workflow') {
+      if (type === 'contrast') {
+        posterTitle.value = analysisStore.insightTitle || '中外舆论温差'
+        posterSubtitle.value = analysisStore.insightSubtitle || 'GrandChart · 舆情全域扫描'
+        await generateData('contrast')
+      } else if (type === 'sentiment') {
+        posterTitle.value = '网民情感光谱'
+        posterSubtitle.value = 'GrandChart · 情绪极化分析'
+        await generateData('sentiment')
+      } else {
+        posterTitle.value = '核心关键词云'
+        posterSubtitle.value = 'GrandChart · 高频词汇捕捉'
+        await generateData('keywords')
+      }
+    } else if (dataSource.value === 'hotnews') {
+      if (type === 'platform-heat') {
+        posterTitle.value = selectedHotTopic.value?.title || '平台热度对比'
+        posterSubtitle.value = `覆盖 ${Object.keys(platformHeatData.value).length} 个平台`
+        await generateData('platform-heat')
+      }
+    }
+    await updateChart()
+  } finally {
+    isChartLoading.value = false
   }
-  updateChart()
+}, 200)
+
+const selectDataType = (type) => {
+  selectDataTypeDebounced(type)
 }
 
 const setTheme = (theme) => {
   selectedTheme.value = theme
-  updateChart()
+  updateChart(false) // 切换主题时不显示加载动画
 }
 
-const updateChart = () => {
+const updateChart = async (showLoading = false) => {
   if (chartInstance) {
-    initChart()
+    if (showLoading) {
+      isChartLoading.value = true
+    }
+    await initChart()
   }
 }
 
@@ -447,10 +833,42 @@ const downloadPoster = () => {
   link.click()
 }
 
+// 监听数据源切换（带防抖和加载状态）
+const handleDataSourceChange = debounce(async (newSource) => {
+  if (isSwitchingDataSource.value) return
+  
+  isSwitchingDataSource.value = true
+  isChartLoading.value = true
+  
+  try {
+    if (newSource === 'hotnews') {
+      // 切换到热点数据源时，加载热点列表
+      if (hotNewsList.value.length === 0) {
+        await loadHotNews()
+      }
+      // 自动选择第一个可用的图表类型
+      if (availableDataOptions.value.length > 0) {
+        await selectDataType(availableDataOptions.value[0].type)
+      }
+    } else {
+      // 切换回舆情推演数据源时，重置为默认图表
+      if (availableDataOptions.value.length > 0) {
+        await selectDataType(availableDataOptions.value[0].type)
+      }
+    }
+  } finally {
+    isSwitchingDataSource.value = false
+    isChartLoading.value = false
+  }
+}, 300)
+
+watch(dataSource, (newSource) => {
+  handleDataSourceChange(newSource)
+})
+
 // 监听数据解锁（从分析store获取）
 watch(() => analysisStore.dataUnlocked, async (unlocked) => {
-  if (unlocked) {
-    // 数据解锁时，自动生成默认的对比数据
+  if (unlocked && dataSource.value === 'workflow') {
     await generateData('contrast')
     nextTick(() => {
       initChart()
@@ -460,23 +878,43 @@ watch(() => analysisStore.dataUnlocked, async (unlocked) => {
 
 // 监听洞察更新，自动更新标题和副标题
 watch(() => analysisStore.insightTitle, (title) => {
-  if (title && selectedDataType.value === 'contrast') {
+  if (title && selectedDataType.value === 'contrast' && dataSource.value === 'workflow') {
     posterTitle.value = title
   }
 })
 
 watch(() => analysisStore.insightSubtitle, (subtitle) => {
-  if (subtitle && selectedDataType.value === 'contrast') {
+  if (subtitle && selectedDataType.value === 'contrast' && dataSource.value === 'workflow') {
     posterSubtitle.value = subtitle
   }
 })
 
 onMounted(() => {
   // 如果数据已解锁，初始化图表
-  if (analysisStore.dataUnlocked) {
+  if (analysisStore.dataUnlocked && dataSource.value === 'workflow') {
     nextTick(() => {
       initChart()
     })
   }
 })
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+</style>

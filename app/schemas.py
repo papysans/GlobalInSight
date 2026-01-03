@@ -130,6 +130,10 @@ class GenerateContrastRequest(BaseModel):
 class GenerateContrastResponse(BaseModel):
     domestic: List[int]  # [支持%, 中立%, 反对%]
     intl: List[int]  # [支持%, 中立%, 反对%]
+    agent_name: str = "analyst"  # 生成数据的Agent名称
+    used_llm: bool = True  # 是否使用了LLM
+    cache_hit: bool = False  # 是否命中缓存
+    llm_reasoning: Optional[str] = None  # LLM生成时的推理过程/说明（前300字符）
 
 class GenerateSentimentRequest(BaseModel):
     topic: str
@@ -141,6 +145,10 @@ class EmotionItem(BaseModel):
 
 class GenerateSentimentResponse(BaseModel):
     emotions: List[EmotionItem]
+    agent_name: str = "analyst"  # 生成数据的Agent名称
+    used_llm: bool = True  # 是否使用了LLM
+    cache_hit: bool = False  # 是否命中缓存
+    llm_reasoning: Optional[str] = None  # LLM生成时的推理过程/说明（前300字符）
 
 class GenerateKeywordsRequest(BaseModel):
     topic: str
@@ -152,3 +160,7 @@ class KeywordItem(BaseModel):
 
 class GenerateKeywordsResponse(BaseModel):
     keywords: List[KeywordItem]
+    agent_name: str = "analyst"  # 生成数据的Agent名称
+    used_llm: bool = True  # 是否使用了LLM
+    cache_hit: bool = False  # 是否命中缓存
+    llm_reasoning: Optional[str] = None  # LLM生成时的推理过程/说明（前300字符）

@@ -428,6 +428,11 @@ async def generate_contrast_data(request: GenerateContrastRequest):
         response = await llm.ainvoke(messages)
         content = str(response.content).strip()
         
+        # 保存LLM原始响应的前300字符作为推理过程展示
+        llm_reasoning = content[:300] if len(content) > 300 else content
+        if len(content) > 300:
+            llm_reasoning += "..."
+        
         # 尝试解析JSON
         import json
         import re
@@ -458,10 +463,23 @@ async def generate_contrast_data(request: GenerateContrastRequest):
             intl = [int(x * 100 / total) for x in intl]
             intl[0] = 100 - sum(intl[1:])
         
-        return GenerateContrastResponse(domestic=domestic, intl=intl)
+        return GenerateContrastResponse(
+            domestic=domestic,
+            intl=intl,
+            agent_name="analyst",
+            used_llm=True,
+            cache_hit=False,
+            llm_reasoning=llm_reasoning
+        )
     except Exception as e:
         # 如果出错，返回默认数据
-        return GenerateContrastResponse(domestic=[65, 20, 15], intl=[30, 40, 30])
+        return GenerateContrastResponse(
+            domestic=[65, 20, 15],
+            intl=[30, 40, 30],
+            agent_name="analyst",
+            used_llm=False,
+            cache_hit=False
+        )
 
 
 @router.post("/generate-data/sentiment", response_model=GenerateSentimentResponse)
@@ -530,14 +548,25 @@ async def generate_sentiment_data(request: GenerateSentimentRequest):
                 EmotionItem(name="中立", value=8)
             ]
         
-        return GenerateSentimentResponse(emotions=emotion_items)
+        return GenerateSentimentResponse(
+            emotions=emotion_items,
+            agent_name="analyst",
+            used_llm=True,
+            cache_hit=False
+        )
     except Exception as e:
-        return GenerateSentimentResponse(emotions=[
-            EmotionItem(name="愤怒", value=55),
-            EmotionItem(name="嘲讽", value=25),
-            EmotionItem(name="失望", value=12),
-            EmotionItem(name="中立", value=8)
-        ])
+        return GenerateSentimentResponse(
+            emotions=[
+                EmotionItem(name="愤怒", value=55),
+                EmotionItem(name="嘲讽", value=25),
+                EmotionItem(name="失望", value=12),
+                EmotionItem(name="中立", value=8)
+            ],
+            agent_name="analyst",
+            used_llm=False,
+            cache_hit=False,
+            llm_reasoning=None
+        )
 
 
 @router.post("/generate-data/keywords", response_model=GenerateKeywordsResponse)
@@ -614,15 +643,26 @@ async def generate_keywords_data(request: GenerateKeywordsRequest):
                 KeywordItem(word="甚至", frequency=500)
             ]
         
-        return GenerateKeywordsResponse(keywords=keyword_items)
+        return GenerateKeywordsResponse(
+            keywords=keyword_items,
+            agent_name="analyst",
+            used_llm=True,
+            cache_hit=False
+        )
     except Exception as e:
-        return GenerateKeywordsResponse(keywords=[
-            KeywordItem(word="真相", frequency=1200),
-            KeywordItem(word="反转", frequency=950),
-            KeywordItem(word="烂尾", frequency=800),
-            KeywordItem(word="公信力", frequency=600),
-            KeywordItem(word="甚至", frequency=500)
-        ])
+        return GenerateKeywordsResponse(
+            keywords=[
+                KeywordItem(word="真相", frequency=1200),
+                KeywordItem(word="反转", frequency=950),
+                KeywordItem(word="烂尾", frequency=800),
+                KeywordItem(word="公信力", frequency=600),
+                KeywordItem(word="甚至", frequency=500)
+            ],
+            agent_name="analyst",
+            used_llm=False,
+            cache_hit=False,
+            llm_reasoning=None
+        )
 
 
 # --- 热点新闻接口 ---

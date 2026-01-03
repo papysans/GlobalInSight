@@ -109,8 +109,7 @@ export const api = {
      */
     async analyze(payload, onMessage) {
         return streamRequest(
-            "/analyze",
-            {
+            "/analyze", {
                 method: "POST",
                 body: JSON.stringify(payload),
             },
@@ -205,6 +204,20 @@ export const api = {
         return request("/generate-data/keywords", {
             method: "POST",
             body: JSON.stringify(payload),
+        });
+    },
+
+    /**
+     * 获取热点新闻列表（对齐后的数据）
+     * @param {Object} payload - { platforms?: string[], force_refresh?: boolean }
+     */
+    async getHotNewsTrending(payload = {}) {
+        return request("/hot-news/collect", {
+            method: "POST",
+            body: JSON.stringify({
+                platforms: payload.platforms || ["all"],
+                force_refresh: payload.force_refresh || false,
+            }),
         });
     },
 };
