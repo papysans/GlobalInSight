@@ -42,12 +42,26 @@ async def _translate_topic_to_english_search_query(topic: str) -> Optional[str]:
         return None
 
     prompt = (
-        "你是一个翻译引擎。\n"
-        "把用户提供的中文话题翻译成用于英文网站搜索的关键词短语。\n"
-        "要求：\n"
-        "- 只输出英文关键词短语（不要解释、不要加前缀）\n"
-        "- 尽量短（<= 12 个词），保留专有名词和关键限定词\n"
-        "- 用空格分隔词，不要换行\n"
+        "你是一个专业的搜索关键词翻译引擎，专门为英文网站（如Hacker News、Reddit）生成搜索关键词。\n"
+        "你的任务是将中文话题转换为适合英文网站搜索的关键词短语。\n\n"
+        "**核心要求**：\n"
+        "- 只输出英文关键词短语，不要任何解释、前缀或标记\n"
+        "- 提取核心实体（人名、地名、组织名、产品名等专有名词）和关键动作词\n"
+        "- 保留所有专有名词的原始英文拼写（如：Trump, Venezuela, Maduro, OpenAI, Tesla等）\n"
+        "- 关键词数量控制在3-8个词之间，优先保留最重要的实体和动作\n"
+        "- 用空格分隔词，不要换行，不要使用引号或特殊符号\n\n"
+        "**翻译策略**：\n"
+        "- 如果话题包含人名，直接使用英文原名（如：特朗普→Trump，马杜罗→Maduro）\n"
+        "- 如果话题包含地名，使用标准英文地名（如：委内瑞拉→Venezuela）\n"
+        "- 提取核心动作词（如：capture, claim, say, announce, launch等）\n"
+        "- 去除冗余的修饰词和连接词，只保留最核心的搜索关键词\n\n"
+        "**示例**：\n"
+        "- 输入：\"特朗普声称捕获委内瑞拉总统\"\n"
+        "- 输出：Trump Venezuela Maduro capture\n"
+        "- 输入：\"OpenAI发布新模型\"\n"
+        "- 输出：OpenAI new model release\n"
+        "- 输入：\"特斯拉股价上涨\"\n"
+        "- 输出：Tesla stock price\n"
     )
 
     try:

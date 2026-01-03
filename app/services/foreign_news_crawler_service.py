@@ -312,11 +312,36 @@ class ForeignNewsCrawlerService:
         lowered = [w.lower() for w in words]
         kept = [w for w, lw in zip(words, lowered) if lw not in _HN_STOPWORDS]
 
-        if len(words) >= 5 or len(raw) >= 35:
+        # Extract core entities (proper nouns - capitalized words) and key action words
+        # This helps with cases like "Trump Venezuela Maduro capture"
+        proper_nouns = [w for w in words if w[0].isupper() and len(w) > 1]  # Capitalized words (likely names/entities)
+        action_words = [w for w in kept if w.lower() not in ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been']]
+        
+        # Build queries with different combinations for better recall
+        if len(words) >= 3:
+            # Query 1: All proper nouns (entities) - highest priority
+            if proper_nouns:
+                entity_query = " ".join(proper_nouns[:5])
+                if entity_query and entity_query.lower() != raw.lower():
+                    queries.append(entity_query)
+            
+            # Query 2: Proper nouns + key action words
+            if proper_nouns and action_words:
+                combined = " ".join(proper_nouns[:3] + action_words[:2])
+                if combined and combined.lower() != raw.lower():
+                    queries.append(combined)
+            
+            # Query 3: Condensed version (original logic)
             if kept:
                 condensed = " ".join(kept[:8])
                 if condensed and condensed.lower() != raw.lower():
                     queries.append(condensed)
+            
+            # Query 4: Individual proper nouns (for very specific searches)
+            if len(proper_nouns) > 1:
+                for pn in proper_nouns[:3]:  # Try each major entity separately
+                    if pn.lower() not in [q.lower() for q in queries]:
+                        queries.append(pn)
 
         # EV synonym expansion: many posts use “electric vehicle(s)”.
         has_ev = any(lw == "ev" or lw.startswith("evs") for lw in lowered)

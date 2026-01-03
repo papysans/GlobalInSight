@@ -245,25 +245,33 @@
 
                 <!-- 可滚动内容区 -->
                 <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-                  <!-- 图片区域：位于文案上方 -->
+                  <!-- 图片区域：位于文案上方（固定比例占位，避免图片加载前塌陷导致文字上移） -->
                   <div :class="[
-                    'relative overflow-hidden flex-shrink-0 transition-colors duration-500',
-                    (analysisStore.imageUrls && analysisStore.imageUrls.length > 0) ? '' : 'aspect-[3/4]',
+                    'relative overflow-hidden flex-shrink-0 transition-colors duration-500 aspect-[3/4]',
                     phoneStyles[currentPhoneStyleIndex].bg
                   ]">
-                    <!-- 优先显示生成的 AI 图片（高度随图片自适应，避免黑边） -->
-                    <div v-if="analysisStore.imageUrls && analysisStore.imageUrls.length > 0" class="relative"
-                      style="touch-action: pan-y;" @pointerdown="onPhonePointerDown" @pointermove="onPhonePointerMove"
-                      @pointerup="onPhonePointerUp" @pointercancel="onPhonePointerUp">
+                    <!-- 优先显示生成的 AI 图片（固定容器比例 + 图片铺满，消除布局抖动） -->
+                    <div
+                      v-if="analysisStore.imageUrls && analysisStore.imageUrls.length > 0"
+                      class="relative w-full h-full"
+                      style="touch-action: pan-y;"
+                      @pointerdown="onPhonePointerDown"
+                      @pointermove="onPhonePointerMove"
+                      @pointerup="onPhonePointerUp"
+                      @pointercancel="onPhonePointerUp"
+                    >
                       <transition name="image-fade" mode="out-in">
-                        <img 
+                        <img
                           :key="currentImageIndex"
                           :src="analysisStore.imageUrls[currentImageIndex % analysisStore.imageUrls.length]"
-                          class="w-full h-auto block"
-                          alt="AI Generated" 
+                          class="absolute inset-0 w-full h-full object-cover block"
+                          alt="AI Generated"
                           draggable="false"
+                          loading="lazy"
+                          decoding="async"
                           @load="imageLoading = false"
-                          @loadstart="imageLoading = true" />
+                          @error="imageLoading = false"
+                        />
                       </transition>
                       
                       <!-- 加载指示器 -->
@@ -708,6 +716,8 @@ const refreshTrending = async () => {
 
 const switchPhoneImage = () => {
   if (analysisStore.imageUrls && analysisStore.imageUrls.length > 0) {
+    // 先显示加载态（避免切换瞬间出现空白/抖动）
+    imageLoading.value = true
     // 预加载下一张图片（如果还没加载）
     const nextIndex = (currentImageIndex.value + 1) % analysisStore.imageUrls.length
     const nextUrl = analysisStore.imageUrls[nextIndex]
@@ -978,6 +988,7 @@ const preloadImages = async (urls) => {
 watch(() => analysisStore.imageUrls.length, async (newLen, oldLen) => {
   if (newLen > 0) {
     currentImageIndex.value = 0
+    imageLoading.value = true
     // 如果图片列表更新，清空旧的预加载缓存并重新预加载
     if (newLen !== oldLen) {
       preloadedImages.value.clear()

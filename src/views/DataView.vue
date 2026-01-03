@@ -327,7 +327,9 @@ const agentInfo = ref({
   agent_name: '',
   used_llm: false,
   cache_hit: false,
-  llm_reasoning: ''  // LLM生成的内容片段
+  llm_reasoning: '',  // LLM生成的内容片段
+  is_thinking: false,  // 是否正在思考
+  thinking_step: ''   // 当前思考步骤
 })
 
 // 所有可用的图表选项
@@ -483,8 +485,13 @@ const generateData = async (type) => {
     }
     
     isLoadingData.value = true
+    // 设置思考状态
+    agentInfo.value.is_thinking = true
+    agentInfo.value.thinking_step = '正在分析议题和洞察...'
+    
     try {
       if (type === 'contrast') {
+        agentInfo.value.thinking_step = '正在调用LLM分析中外舆论对比...'
         const data = await api.generateContrastData({ topic, insight })
         contrastData.value = data
         // 保存Agent信息
@@ -492,7 +499,9 @@ const generateData = async (type) => {
           agent_name: data.agent_name || 'analyst',
           used_llm: data.used_llm !== undefined ? data.used_llm : true,
           cache_hit: data.cache_hit !== undefined ? data.cache_hit : false,
-          llm_reasoning: data.llm_reasoning || ''
+          llm_reasoning: data.llm_reasoning || '',
+          is_thinking: false,
+          thinking_step: ''
         }
         if (analysisStore.insightTitle) {
           posterTitle.value = analysisStore.insightTitle
@@ -511,6 +520,7 @@ const generateData = async (type) => {
           llm_reasoning: data.llm_reasoning || ''
         }
       } else if (type === 'keywords') {
+        agentInfo.value.thinking_step = '正在调用LLM提取关键词...'
         const data = await api.generateKeywordsData({ topic })
         keywordsData.value = data.keywords
         // 保存Agent信息
@@ -518,14 +528,24 @@ const generateData = async (type) => {
           agent_name: data.agent_name || 'analyst',
           used_llm: data.used_llm !== undefined ? data.used_llm : true,
           cache_hit: data.cache_hit !== undefined ? data.cache_hit : false,
-          llm_reasoning: data.llm_reasoning || ''
+          llm_reasoning: data.llm_reasoning || '',
+          is_thinking: false,
+          thinking_step: ''
         }
       }
       updateChart()
     } catch (err) {
       console.error('生成数据失败:', err)
+      // 错误时清除思考状态
+      agentInfo.value.is_thinking = false
+      agentInfo.value.thinking_step = '生成失败，请重试'
     } finally {
       isLoadingData.value = false
+      // 确保思考状态被清除
+      if (!agentInfo.value.agent_name) {
+        agentInfo.value.is_thinking = false
+        agentInfo.value.thinking_step = ''
+      }
     }
   } else if (dataSource.value === 'hotnews') {
     // 热点数据：平台热度对比直接使用已加载的数据
