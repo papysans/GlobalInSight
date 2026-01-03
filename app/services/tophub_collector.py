@@ -348,11 +348,14 @@ class TopHubCollector:
         # 选择要收集的榜单
         if source_ids is None:
             source_ids = list(TOPHUB_SOURCES.keys())
+            logger.info(f"🔍 source_ids=None，将收集所有 {len(source_ids)} 个榜单")
+        else:
+            logger.info(f"🔍 指定了 source_ids={source_ids}，将收集 {len(source_ids)} 个榜单")
         
         logger.info(f"📊 将从 {len(source_ids)} 个榜单收集数据:")
         for source_id in source_ids:
             source_name = TOPHUB_SOURCES.get(source_id, {}).get('name', source_id)
-            logger.info(f"   - {source_name}")
+            logger.info(f"   - {source_name} (ID: {source_id})")
         logger.info("=" * 80)
         
         try:
