@@ -54,6 +54,36 @@ class HotNewsCollectRequest(BaseModel):
     platforms: Optional[List[str]] = None  # 指定平台列表，None表示所有平台
     force_refresh: bool = False  # 是否强制刷新
 
+
+class HotNewsInterpretRequest(BaseModel):
+    """单条热点的“演化解读”请求（只在用户点开时调用）"""
+    id: str
+    title: str
+    collection_time: Optional[str] = None
+    hot_value: Optional[str] = None
+    hot_score: Optional[float] = None
+    growth: Optional[int] = None
+    hot_score_delta: Optional[float] = None
+    is_new: Optional[bool] = None
+    platforms_data: Optional[List[Dict[str, Any]]] = None
+    evidence: Optional[List[Dict[str, Any]]] = None
+
+
+class HotNewsInterpretResponse(BaseModel):
+    """演化解读结果"""
+    success: bool = True
+    id: str
+    title: str
+    agent_name: str = "hotnews_interpretation_agent"
+    cache_hit: bool = False
+    trace_steps: List[str] = []
+    lifecycle_stage: str
+    diffusion_summary: str
+    divergence_points: List[str] = []
+    watch_points: List[str] = []
+    confidence: float = 0.6
+    used_llm: bool = False
+
 class ConfigResponse(BaseModel):
     llm_providers: Dict[str, List[LLMProviderConfig]]
     crawler_limits: Dict[str, CrawlerLimit]

@@ -63,6 +63,13 @@ class Config:
             {"provider": "deepseek", "model": DEEPSEEK_MODEL},
             {"provider": "moonshot", "model": MOONSHOT_MODEL},
         ],
+        # --- Hot News Interpretation Agent (for thesis/demo) ---
+        # Used by /api/hot-news/interpret. Single-topic, on-demand LLM call with caching.
+        "hotnews_interpretation_agent": [
+            {"provider": "deepseek", "model": DEEPSEEK_MODEL},
+            {"provider": "moonshot", "model": MOONSHOT_MODEL},
+            {"provider": "doubao", "model": DOUBAO_MODEL},
+        ],
     }
 
     # --- Workflow Settings ---

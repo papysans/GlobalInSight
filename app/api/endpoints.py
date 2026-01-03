@@ -9,16 +9,24 @@ from app.schemas import (
     GenerateContrastRequest, GenerateContrastResponse,
     GenerateSentimentRequest, GenerateSentimentResponse, EmotionItem,
     GenerateKeywordsRequest, GenerateKeywordsResponse, KeywordItem,
-    HotNewsCollectRequest
+    HotNewsCollectRequest,
+    HotNewsInterpretRequest,
+    HotNewsInterpretResponse,
 )
 from app.services.workflow import app_graph
 from app.services.workflow_status import workflow_status
 from app.services.tophub_collector import tophub_collector
 from app.services.hn_hot_collector import hn_hot_collector
 from app.services.hot_news_scheduler import hot_news_scheduler
+from app.services.hot_news_cache import hot_news_cache
+from app.services.hotnews_alignment import cluster_items, clusters_to_api, make_raw_item
+from app.services.hotnews_signals import apply_history_signals, make_history_snapshot
+from app.services.hotnews_history import HotNewsHistoryConfig, HotNewsHistoryStore
+from app.services.hotnews_interpreter import interpret_hot_topic
 from app.config import settings
 from pathlib import Path
 from datetime import datetime
+import copy
 
 router = APIRouter()
 
@@ -702,122 +710,120 @@ async def collect_hot_news(request: HotNewsCollectRequest):
         else:
             logger.info("📡 步骤2: 跳过 HN 平台（未请求）")
         
-        # 如果指定了平台，进行过滤
-        if request.platforms and 'all' not in request.platforms:
-            logger.info(f"🔍 步骤3: 开始过滤平台，请求的平台: {request.platforms}")
-            logger.info(f"   ✓ 过滤前 news_list 长度: {len(news_list)}")
-            
-            # 将前端平台ID转换为后端的source名称
-            target_sources = set()
-            target_platforms = set()  # 用于匹配全平台热榜的 platform 字段
-            
-            # 平台ID到平台简称的映射（用于全平台热榜的 platform 字段）
-            platform_short_names = {
-                'weibo': '微博',
-                'bilibili': 'B站',
-                'douyin': '抖音',
-                'baidu': '百度',
-                'tieba': '贴吧',
-                'kuaishou': '快手',
-                'zhihu': '知乎',
-                'xhs': '小红书',
-            }
-            
-            for platform_id in request.platforms:
-                if platform_id in platform_mapping:
-                    target_sources.add(platform_mapping[platform_id])
-                    # 同时添加对应的平台简称（用于全平台热榜）
-                    if platform_id in platform_short_names:
-                        target_platforms.add(platform_short_names[platform_id])
-                elif platform_id == 'hn':
-                    target_sources.add('Hacker News')
-                elif platform_id == 'hot':
-                    target_sources.add('全平台热榜')
-            
-            logger.info(f"   ✓ 目标source: {target_sources}")
-            logger.info(f"   ✓ 目标platform: {target_platforms}")
-            
-            # 过滤新闻列表，保留：
-            # 1. source 匹配的（单独平台榜单）
-            # 2. source 是"全平台热榜"且 platform 匹配的（全榜中的该平台新闻）
-            filtered_news_list = []
-            for news in news_list:
-                source = news.get('source', '')
-                platform = news.get('platform', '')
-                
-                # 直接匹配 source（单独榜单）
-                if source in target_sources:
-                    filtered_news_list.append(news)
-                # 或者是全平台热榜，且 platform 字段匹配
-                elif source == '全平台热榜' and platform in target_platforms:
-                    filtered_news_list.append(news)
-            
-            logger.info(f"   ✓ 过滤后 news_list 长度: {len(filtered_news_list)}")
-            
-            if len(filtered_news_list) == 0 and len(news_list) > 0:
-                # 输出前5条新闻的 source 和 platform 字段用于调试
-                logger.warning("   ⚠️  过滤结果为空，显示前5条新闻的字段:")
-                for i, news in enumerate(news_list[:5]):
-                    logger.warning(f"      [{i+1}] source='{news.get('source')}', platform='{news.get('platform')}'")
-            
-            news_list = filtered_news_list
+        # --- 新版：对齐聚类（支持缓存），前端可只请求一次再本地筛选 ---
+        include_hn = bool(request.platforms and ('hn' in request.platforms or 'all' in request.platforms))
+
+        # Build a source signature for caching the expensive clustering result.
+        source_sig = f"t:{collection_time}"
+        if include_hn:
+            # best-effort: use hn cache time if available
+            source_sig += f"|hn:{datetime.now().strftime('%Y-%m-%d')}"
+
+        cache_key = "aligned_with_hn" if include_hn else "aligned_no_hn"
+        cached_payload = None
+        if not request.force_refresh:
+            cached = hot_news_cache.get_cached_data(cache_key=cache_key)
+            if cached and cached.get("source_sig") == source_sig and isinstance(cached.get("clusters"), list):
+                cached_payload = cached.get("clusters")
+
+        short_to_id = {
+            "微博": "weibo",
+            "B站": "bilibili",
+            "哔哩哔哩": "bilibili",
+            "抖音": "douyin",
+            "百度": "baidu",
+            "贴吧": "tieba",
+            "快手": "kuaishou",
+            "知乎": "zhihu",
+            "小红书": "xhs",
+        }
+
+        if cached_payload is not None:
+            cluster_payload = copy.deepcopy(cached_payload)
         else:
-            logger.info("🔍 步骤3: 跳过过滤（请求所有平台）")
-        
-        logger.info(f"📊 步骤4: 处理全平台热榜的 platform 字段（从URL提取）")
-        # 对于全平台热榜，从URL提取平台信息
-        url_to_platform_map = {
-            'zhihu.com': '知乎',
-            'weibo.com': '微博',
-            'bilibili.com': 'B站',
-            'douyin.com': '抖音',
-            'baidu.com': '百度',
-            'tieba.baidu.com': '贴吧',
-            'kuaishou.com': '快手',
-            'xiaohongshu.com': '小红书',
-        }
-        
-        for news in news_list:
-            if news.get('source') == '全平台热榜' and news.get('url'):
-                # 从URL提取平台
-                url = news.get('url', '')
-                for domain, platform_name in url_to_platform_map.items():
-                    if domain in url:
-                        news['platform'] = platform_name
-                        break
-                if 'platform' not in news:
-                    news['platform'] = '其他平台'
-        
-        # 按平台分组新闻
-        logger.info(f"📊 步骤5: 按平台分组并添加时间戳")
-        for news in news_list:
-            platform = news.get('source', '未知平台')
-            # 为每条新闻添加时间戳（如果没有的话）
-            if 'timestamp' not in news:
-                news['timestamp'] = collection_time
-            news_by_platform[platform].append(news)
-        
-        logger.info(f"   ✓ 分组完成，共 {len(news_by_platform)} 个平台")
-        
-        # 转换为字典格式，方便前端使用
-        platform_news = {
-            platform: sorted(news_list, key=lambda x: x.get('rank', 999))
-            for platform, news_list in news_by_platform.items()
-        }
-        
-        logger.info(f"✅ 请求处理完成，返回 {len(news_list)} 条新闻")
-        logger.info("=" * 80)
-        
+            raw_items = []
+            # Map TopHub items -> RawItem (platform_id inferred via TOPHUB_SOURCES and item.platform for /hot)
+            try:
+                from app.services.tophub_collector import TOPHUB_SOURCES as _TOPHUB_SOURCES
+            except Exception:
+                _TOPHUB_SOURCES = {}
+
+            for n in news_list:
+                title = n.get("title") or ""
+                url = n.get("url") or ""
+                hot_value = n.get("hot_value") or ""
+                source_id = str(n.get("source_id") or "")
+                source_name = n.get("source") or n.get("source_name") or "Unknown"
+                rank = n.get("rank") if isinstance(n.get("rank"), int) else None
+                ts = n.get("timestamp") or collection_time
+
+                if source_name == "Hacker News":
+                    platform_id = "hn"
+                elif source_id in _TOPHUB_SOURCES:
+                    plat = _TOPHUB_SOURCES[source_id].get("platform") or "unknown"
+                    if plat == "all":
+                        plat_name = (n.get("platform") or "").strip()
+                        platform_id = short_to_id.get(plat_name, "all")
+                    else:
+                        platform_id = str(plat)
+                else:
+                    platform_id = "unknown"
+
+                raw_items.append(
+                    make_raw_item(
+                        platform_id=platform_id,
+                        source_id=source_id,
+                        source_name=source_name,
+                        title=title,
+                        url=url,
+                        hot_value=hot_value,
+                        rank=rank,
+                        ts=ts,
+                    )
+                )
+
+            clusters = cluster_items(raw_items)
+            cluster_payload = clusters_to_api(clusters, collection_time=collection_time)
+
+            hot_news_cache.save_to_cache(
+                {"collection_time": collection_time, "source_sig": source_sig, "clusters": cluster_payload},
+                cache_key=cache_key,
+            )
+
+        # History snapshot for growth/delta/is_new
+        repo_root = Path(__file__).resolve().parents[1]
+        history_store = HotNewsHistoryStore(
+            HotNewsHistoryConfig(history_path=repo_root / "outputs" / "hotnews_history.jsonl")
+        )
+        prev = history_store.load_recent_snapshots(limit=1)
+        prev_snapshot = prev[0] if prev else None
+        cluster_payload = apply_history_signals(cluster_payload, prev_snapshot=prev_snapshot)
+
+        if not prev_snapshot or prev_snapshot.get("ts") != collection_time:
+            history_store.append_snapshot(make_history_snapshot(ts=collection_time, clusters=cluster_payload))
+
+        # Optional server-side filtering (frontend will do local filtering too)
+        requested_set = set([p for p in (request.platforms or []) if p])
+        if not requested_set or "all" in requested_set:
+            filtered_clusters = cluster_payload
+        else:
+            def _cluster_has_platform(c: dict) -> bool:
+                for ev in c.get("evidence") or []:
+                    if ev.get("platform_id") in requested_set:
+                        return True
+                return False
+            filtered_clusters = [c for c in cluster_payload if _cluster_has_platform(c)]
+
         return {
-            "success": result['success'],
-            "total_news": len(news_list),  # 返回过滤后的新闻数量
-            "successful_sources": result.get('successful_sources', 0),
-            "total_sources": result.get('total_sources', 0),
-            "news_list": news_list[:100],  # 返回所有新闻（最多100条）
-            "news_by_platform": platform_news,  # 按平台分组
+            "success": bool(result.get("success", True)),
+            "total_news": len(filtered_clusters),
+            "successful_sources": result.get("successful_sources", 0),
+            "total_sources": result.get("total_sources", 0),
+            "news_list": filtered_clusters[:200],
+            "news_by_platform": {},  # frontend now filters locally
             "collection_time": collection_time,
-            "from_cache": result.get('from_cache', False),
-            "error": result.get('error')
+            "from_cache": bool(result.get("from_cache", False)),
+            "error": result.get("error"),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"收集热点新闻失败: {str(e)}")
@@ -828,6 +834,27 @@ async def get_hot_news_status():
     """获取热点新闻收集任务状态"""
     status = hot_news_scheduler.get_status()
     return status
+
+
+@router.post("/hot-news/interpret", response_model=HotNewsInterpretResponse)
+async def interpret_hot_news_topic(request: HotNewsInterpretRequest):
+    """用户点开单条热点时，生成“热点演化解读卡”（只调用这一条的 LLM）。"""
+    try:
+        result = await interpret_hot_topic(request.model_dump())
+        return HotNewsInterpretResponse(**result)
+    except Exception as e:
+        # Never hard-fail the UI; return heuristic fallback structure.
+        return HotNewsInterpretResponse(
+            success=False,
+            id=request.id,
+            title=request.title,
+            lifecycle_stage="盘整期",
+            diffusion_summary=f"解读生成失败：{str(e)}",
+            divergence_points=[],
+            watch_points=[],
+            confidence=0.2,
+            used_llm=False,
+        )
 
 
 @router.post("/hot-news/run-once")

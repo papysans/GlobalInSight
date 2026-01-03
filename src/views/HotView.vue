@@ -145,7 +145,7 @@
                                 <h3 class="text-lg font-bold text-slate-800">
                                     {{ selectedTopic?.title || '选择话题查看详情' }}
                                 </h3>
-                                <p class="text-xs text-slate-400 mt-1">跨平台对齐 · 证据列表 · 争议预判</p>
+                                <p class="text-xs text-slate-400 mt-1">热点演化解读 · 扩散态势 · 分歧观察</p>
                             </div>
                             <div class="flex items-center gap-2" v-if="selectedTopic">
                                 <span class="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
@@ -176,31 +176,71 @@
                                 </div>
                             </div>
 
-                            <!-- Evidence -->
+                            <!-- Evolution Interpretation -->
                             <div>
-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">证据列表</h4>
-                                <div class="grid gap-2">
-                                    <div v-if="selectedTopic.evidence && selectedTopic.evidence.length > 0"
-                                        v-for="(ev, i) in selectedTopic.evidence" :key="i"
-                                        class="p-3 rounded-lg border border-slate-100 bg-slate-50 text-xs text-slate-600">
-                                        <p class="font-semibold text-slate-700">{{ ev.platform || 'Platform' }}</p>
-                                        <p class="text-[11px] text-slate-500 mt-1">{{ ev.title || '获取中...' }}</p>
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">热点演化解读</h4>
+                                <div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+                                    <div v-if="isInterpreting" class="text-slate-500">解读生成中...</div>
+                                    <div v-else-if="interpretError" class="text-rose-600">{{ interpretError }}</div>
+                                    <div v-else-if="topicInsight">
+                                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                                                生命周期：{{ topicInsight.lifecycle_stage }}
+                                            </span>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                                                Agent：{{ topicInsight.agent_name || 'hotnews_interpretation_agent' }}
+                                            </span>
+                                            <span v-if="topicInsight.cache_hit"
+                                                class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                                                缓存命中
+                                            </span>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                                                置信度：{{ Math.round((topicInsight.confidence || 0.6) * 100) }}%
+                                            </span>
+                                        </div>
+                                        <p class="text-sm text-slate-700 whitespace-pre-line">{{ topicInsight.diffusion_summary }}</p>
+                                        <div v-if="topicInsight.trace_steps && topicInsight.trace_steps.length" class="mt-3">
+                                            <div class="text-xs font-bold text-slate-500 mb-1">分析链路</div>
+                                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                                <li v-for="(x, i) in topicInsight.trace_steps" :key="`s-${i}`">{{ x }}</li>
+                                            </ul>
+                                        </div>
+                                        <div v-if="topicInsight.divergence_points && topicInsight.divergence_points.length" class="mt-3">
+                                            <div class="text-xs font-bold text-slate-500 mb-1">分歧点</div>
+                                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                                <li v-for="(x, i) in topicInsight.divergence_points" :key="`d-${i}`">{{ x }}</li>
+                                            </ul>
+                                        </div>
+                                        <div v-if="topicInsight.watch_points && topicInsight.watch_points.length" class="mt-3">
+                                            <div class="text-xs font-bold text-slate-500 mb-1">观察点</div>
+                                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                                <li v-for="(x, i) in topicInsight.watch_points" :key="`w-${i}`">{{ x }}</li>
+                                            </ul>
+                                        </div>
                                     </div>
-                                    <div v-else
-                                        class="p-3 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-500">
-                                        暂无证据数据
-                                    </div>
+                                    <div v-else class="text-slate-500">点击左侧话题后生成演化解读。</div>
                                 </div>
                             </div>
 
-                            <!-- Conflicts -->
+                            <!-- Sources (optional) -->
                             <div>
-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">可能冲突点</h4>
-                                <ul v-if="selectedTopic.conflicts"
-                                    class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                    <li v-for="(conflict, i) in selectedTopic.conflicts" :key="i">{{ conflict }}</li>
-                                </ul>
-                                <div v-else class="text-sm text-slate-500 text-center py-2">暂无冲突预警</div>
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">来源链接</h4>
+                                <div class="grid gap-2">
+                                    <div v-if="selectedTopic.evidence && selectedTopic.evidence.length > 0"
+                                        v-for="(ev, i) in selectedTopic.evidence.slice(0, 6)" :key="i"
+                                        class="p-3 rounded-lg border border-slate-100 bg-slate-50 text-xs text-slate-600">
+                                        <p class="font-semibold text-slate-700">{{ ev.platform || ev.platform_id || 'Platform' }}</p>
+                                        <a v-if="ev.url" class="text-[11px] text-blue-600 hover:underline mt-1 block"
+                                            :href="ev.url" target="_blank" rel="noreferrer">
+                                            {{ ev.title || '打开链接' }}
+                                        </a>
+                                        <p v-else class="text-[11px] text-slate-500 mt-1">{{ ev.title || '无链接' }}</p>
+                                    </div>
+                                    <div v-else
+                                        class="p-3 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-500">
+                                        暂无来源链接
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="mt-5 text-center py-8 text-slate-400">
@@ -232,6 +272,9 @@ const configStore = useConfigStore()
 // State
 const topics = ref([])
 const selectedTopic = ref(null)
+const topicInsight = ref(null)
+const isInterpreting = ref(false)
+const interpretError = ref('')
 const isLoading = ref(false)
 const selectedPlatform = ref('all') // 单选平台，默认为全榜
 const selectedCategory = ref('all')
@@ -269,6 +312,16 @@ const categoryList = ref([
 const filteredTopics = computed(() => {
     let result = topics.value
 
+    // Local platform filter (avoid re-requesting backend when switching tabs)
+    if (selectedPlatform.value !== 'all') {
+        const pid = selectedPlatform.value
+        result = result.filter(t => {
+            const ev = Array.isArray(t.evidence) ? t.evidence : []
+            const pd = Array.isArray(t.platforms_data) ? t.platforms_data : []
+            return ev.some(x => x && x.platform_id === pid) || pd.some(x => x && x.platform_id === pid)
+        })
+    }
+
     // Filter by category
     if (selectedCategory.value !== 'all') {
         result = result.filter(t => t.category === selectedCategory.value)
@@ -301,11 +354,53 @@ const filteredTopics = computed(() => {
 const selectPlatformAndRefresh = (platformId) => {
     // 直接设置平台，'all' 表示全榜
     selectedPlatform.value = platformId
-    refreshTrending({ forceRefresh: false })
+    // 切换平台不再触发后端采集，直接本地过滤
 }
 
 const selectTopic = (topic) => {
     selectedTopic.value = topic
+    topicInsight.value = null
+    interpretError.value = ''
+    // 点击后请求“演化解读卡”
+    fetchTopicInsight(topic)
+}
+
+const fetchTopicInsight = async (topic) => {
+    if (!topic) return
+    isInterpreting.value = true
+    interpretError.value = ''
+    try {
+        const apiUrl = 'http://127.0.0.1:8000/api'
+        const body = {
+            id: topic.id,
+            title: topic.title,
+            collection_time: topic.timestamp,
+            hot_value: topic.heat_display,
+            hot_score: topic.heat_score,
+            growth: topic.growth,
+            hot_score_delta: topic.hot_score_delta,
+            is_new: topic.is_new,
+            platforms_data: topic.platforms_data || [],
+            evidence: topic.evidence || [],
+        }
+        const resp = await fetch(`${apiUrl}/hot-news/interpret`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        })
+        const data = await resp.json()
+        if (!data || data.success === false) {
+            interpretError.value = (data && data.diffusion_summary) ? data.diffusion_summary : '解读生成失败'
+            topicInsight.value = null
+        } else {
+            topicInsight.value = data
+        }
+    } catch (e) {
+        interpretError.value = e?.message || '解读生成失败'
+        topicInsight.value = null
+    } finally {
+        isInterpreting.value = false
+    }
 }
 
 const goToSimulation = () => {
@@ -355,7 +450,8 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
         const apiUrl = 'http://127.0.0.1:8000/api'
         // 构建请求体，包含选中的平台
         const requestBody = {
-            platforms: [selectedPlatform.value],  // 统一发送数组，后端处理 'all' 为特殊值
+            // 永远取全量（含对齐信息），前端本地按平台过滤
+            platforms: ['all'],
             force_refresh: forceRefresh
         }
         const response = await fetch(`${apiUrl}/hot-news/collect`, {
@@ -367,45 +463,52 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
         })
         const data = await response.json()
 
-        // 直接使用后端已过滤的 news_list（不要遍历 news_by_platform 导致拼接所有平台）
+        // 使用后端返回的对齐数据（news_list）
         if (data.news_list && Array.isArray(data.news_list)) {
             const allNews = data.news_list.map((news, idx) => {
                 const topicId = news.id || `${news.source_id}-${news.rank}`
-                const heat = parseHeatValue(news.hot_value)
-                const platformDisplay = news.platform || news.source || '未知平台'
+                const heatDisplay = news.hot_value || ''
+                const heat = parseHeatValue(heatDisplay)
+                const platformDisplay = news.platform || '多平台对齐'
+                const evidenceList = Array.isArray(news.evidence) ? news.evidence : []
+                const platformsData = Array.isArray(news.platforms_data) ? news.platforms_data : []
+                const conflicts = Array.isArray(news.conflicts) ? news.conflicts : []
+                const keywords = Array.isArray(news.keywords) ? news.keywords : []
+                const primaryUrl = (evidenceList[0] && evidenceList[0].url) ? evidenceList[0].url : (news.url || '')
+                let sourceHost = platformDisplay
+                try {
+                    sourceHost = primaryUrl ? new URL(primaryUrl).hostname : platformDisplay
+                } catch (e) {
+                    sourceHost = platformDisplay
+                }
 
                 return {
                     id: topicId,
                     title: news.title || `话题 #${idx + 1}`,
-                    description: news.description || '',
-                    platform_id: news.source_id,
+                    description: keywords.length ? `关键词：${keywords.slice(0, 6).join(' / ')}` : '',
+                    platform_id: news.source_id || 'aligned',
                     platform: platformDisplay,
-                    heat_score: heat.score,
-                    heat_display: heat.display,
+                    heat_score: Number.isFinite(news.hot_score) ? news.hot_score : heat.score,
+                    heat_display: heatDisplay || heat.display,
                     rank: news.rank || (idx + 1),
-                    category: news.category || 'all',
-                    source: news.url ? new URL(news.url).hostname : platformDisplay,
-                    url: news.url,
-                    growth: Math.floor(Math.random() * 50),
-                    controversy: Math.floor(Math.random() * 30),
-                    evidence: [
-                        {
-                            platform: platformDisplay,
-                            title: news.title || `话题证据 #${idx + 1}`
-                        }
-                    ],
-                    conflicts: [],
-                    platforms_data: [
-                        {
-                            platform: platformDisplay,
-                            hot_value: heat.display
-                        }
-                    ]
+                    category: news.category || 'aligned',
+                    source: sourceHost,
+                    url: primaryUrl,
+                    growth: typeof news.growth === 'number' ? news.growth : 0,
+                    controversy: typeof news.controversy === 'number' ? news.controversy : 0,
+                    hot_score_delta: typeof news.hot_score_delta === 'number' ? news.hot_score_delta : 0,
+                    is_new: Boolean(news.is_new),
+                    keywords,
+                    evidence: evidenceList,
+                    conflicts,
+                    platforms_data: platformsData,
+                    timestamp: news.timestamp || data.collection_time
                 }
             })
 
             topics.value = allNews
             selectedTopic.value = null
+            topicInsight.value = null
         }
     } catch (error) {
         console.error('Failed to fetch trending:', error)
