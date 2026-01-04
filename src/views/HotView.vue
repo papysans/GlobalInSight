@@ -306,6 +306,8 @@ const searchQuery = ref('')
 const debounceTimer = ref(null)
 const lastRefreshTime = ref(0)
 const DEBOUNCE_DELAY = 1000 // 防抖延迟时间（毫秒），1秒内只执行一次
+const refreshPollTimer = ref(null)
+const refreshPollAttempts = ref(0)
 
 // Platforms and Categories
 const platformList = ref([
@@ -498,7 +500,13 @@ const filteredTopics = computed(() => {
         result = result.filter(t => {
             const ev = Array.isArray(t.evidence) ? t.evidence : []
             const pd = Array.isArray(t.platforms_data) ? t.platforms_data : []
-            return ev.some(x => x && x.platform_id === pid) || pd.some(x => x && x.platform_id === pid)
+            const pids = Array.isArray(t.platform_ids) ? t.platform_ids : []
+            // Prefer cluster-level platform_ids (more reliable than top-N evidence/platforms_data)
+            return (
+                pids.includes(pid) ||
+                ev.some(x => x && x.platform_id === pid) ||
+                pd.some(x => x && x.platform_id === pid)
+            )
         })
     }
 
@@ -630,7 +638,8 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
         const apiUrl = 'http://127.0.0.1:8000/api'
         // 构建请求体，包含选中的平台
         const requestBody = {
-            // 永远取全量（含对齐信息），前端本地按平台过滤
+            // 关键：刷新永远拉“全榜(all)”的数据，平台切换只做本地过滤，避免“当前平台请求污染全局数据”导致其它平台为空。
+            // （HN/贴吧之前看不到的问题已由后端增加返回数量+对齐平台字段解决，无需按平台单独请求）
             platforms: ['all'],
             force_refresh: forceRefresh
         }
@@ -643,6 +652,15 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
         })
         const data = await response.json()
 
+        console.info('[HotView] /hot-news/collect resp', {
+            from_cache: data?.from_cache,
+            refreshing: data?.refreshing,
+            total_news: data?.total_news,
+            platform_cluster_counts: data?.platform_cluster_counts,
+            raw_platform_counts: data?.raw_platform_counts,
+            debug: data?.debug,
+        })
+
         // 使用后端返回的对齐数据（news_list）
         if (data.news_list && Array.isArray(data.news_list)) {
             const allNews = data.news_list.map((news, idx) => {
@@ -652,6 +670,12 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
                 const platformDisplay = news.platform || '多平台对齐'
                 const evidenceList = Array.isArray(news.evidence) ? news.evidence : []
                 const platformsData = Array.isArray(news.platforms_data) ? news.platforms_data : []
+                const platformIds = Array.isArray(news.platform_ids)
+                    ? news.platform_ids
+                    : Array.from(new Set([
+                        ...platformsData.map(x => x && x.platform_id).filter(Boolean),
+                        ...evidenceList.map(x => x && x.platform_id).filter(Boolean),
+                    ]))
                 const conflicts = Array.isArray(news.conflicts) ? news.conflicts : []
                 const keywords = Array.isArray(news.keywords) ? news.keywords : []
                 const primaryUrl = (evidenceList[0] && evidenceList[0].url) ? evidenceList[0].url : (news.url || '')
@@ -683,6 +707,7 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
                     hot_score_delta: typeof news.hot_score_delta === 'number' ? news.hot_score_delta : 0,
                     is_new: Boolean(news.is_new),
                     keywords,
+                    platform_ids: platformIds,
                     evidence: evidenceList,
                     conflicts,
                     platforms_data: platformsData,
@@ -693,6 +718,37 @@ const _refreshTrending = async ({ forceRefresh = false } = {}) => {
             topics.value = allNews
             selectedTopic.value = null
             topicInsight.value = null
+        }
+
+        // Debug: after mapping, report how many topics remain after local filter
+        try {
+            const pid = selectedPlatform.value
+            const localFiltered = pid === 'all'
+                ? topics.value
+                : topics.value.filter(t => Array.isArray(t.platform_ids) && t.platform_ids.includes(pid))
+            console.info('[HotView] topics mapped', {
+                selectedPlatform: pid,
+                topics_total: topics.value.length,
+                topics_match_platform_ids: localFiltered.length,
+            })
+        } catch (_) { /* ignore */ }
+
+        // SWR: if backend is refreshing in background, do a few follow-up polls to fetch fresh cache.
+        if (data && data.refreshing) {
+            // Avoid endless polling
+            refreshPollAttempts.value += 1
+            if (refreshPollAttempts.value <= 4) {
+                if (refreshPollTimer.value) clearTimeout(refreshPollTimer.value)
+                refreshPollTimer.value = setTimeout(() => {
+                    _refreshTrending({ forceRefresh: false })
+                }, 1200)
+            }
+        } else {
+            refreshPollAttempts.value = 0
+            if (refreshPollTimer.value) {
+                clearTimeout(refreshPollTimer.value)
+                refreshPollTimer.value = null
+            }
         }
     } catch (error) {
         console.error('Failed to fetch trending:', error)

@@ -394,6 +394,9 @@ def clusters_to_api(
                 "category": "aligned",
                 "timestamp": collection_time,
                 "platform": f"{len(set(c.platforms))}平台对齐",
+                # IMPORTANT: use this for platform filtering on frontend; do not rely only on top-N evidence
+                # because some low-score platforms (e.g. HN / Tieba) may be trimmed out of evidence.
+                "platform_ids": sorted(list(set(c.platforms))),
                 "platforms_data": platforms_data,
                 "evidence": evidence,
                 "conflicts": c.controversy_reasons,

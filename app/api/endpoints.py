@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from loguru import logger
 from app.schemas import (
     NewsRequest, AgentState, ConfigResponse, ConfigUpdateRequest,
@@ -26,9 +26,177 @@ from app.services.hotnews_interpreter import interpret_hot_topic
 from app.config import settings
 from pathlib import Path
 from datetime import datetime
+import asyncio
 import copy
 
 router = APIRouter()
+
+# --- Hot News: SWR (stale-while-revalidate) background refresh ---
+_HOTNEWS_REFRESH_TASKS: Dict[str, "asyncio.Task[None]"] = {}
+
+
+def _cluster_platform_counts(clusters: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for c in clusters or []:
+        pids = c.get("platform_ids") or []
+        if isinstance(pids, list):
+            for pid in pids:
+                if not pid:
+                    continue
+                counts[str(pid)] = counts.get(str(pid), 0) + 1
+    return counts
+
+
+def _raw_platform_counts(raw_items: List[Any]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for it in raw_items or []:
+        pid = getattr(it, "platform_id", None) or (it.get("platform_id") if isinstance(it, dict) else None)
+        if not pid:
+            continue
+        pid = str(pid)
+        counts[pid] = counts.get(pid, 0) + 1
+    return counts
+
+
+async def _rebuild_aligned_clusters(*, include_hn: bool, force_refresh: bool) -> Dict[str, Any]:
+    """Build aligned clusters from TopHub (+ optional HN) and persist into cache."""
+    # Step 1: TopHub
+    result = await tophub_collector.collect_news(force_refresh=force_refresh)
+    news_list = result.get("news_list", []) or []
+    collection_time = result.get("collection_time", datetime.now().isoformat())
+
+    # Step 2: HN (optional)
+    if include_hn:
+        try:
+            hn_result = await hn_hot_collector.collect_news(
+                source_ids=["top", "best", "new"],
+                max_items=30,
+                force_refresh=force_refresh,
+            )
+            if hn_result.get("success"):
+                hn_news = hn_result.get("news_list", []) or []
+                for n in hn_news:
+                    n["source"] = "Hacker News"
+                    n.setdefault("timestamp", hn_result.get("collection_time", datetime.now().isoformat()))
+                # Remove any pre-existing HN entries to avoid duplicates, then extend.
+                news_list = [n for n in news_list if n.get("source") != "Hacker News"]
+                news_list.extend(hn_news)
+        except Exception as e:
+            logger.warning(f"[hot-news] rebuild: HN fetch failed: {e}")
+
+    # Step 3: cluster alignment (same logic as existing endpoint)
+    short_to_id = {
+        "微博": "weibo",
+        "B站": "bilibili",
+        "哔哩哔哩": "bilibili",
+        "抖音": "douyin",
+        "百度": "baidu",
+        "贴吧": "tieba",
+        "快手": "kuaishou",
+        "知乎": "zhihu",
+        "小红书": "xhs",
+    }
+
+    try:
+        from app.services.tophub_collector import TOPHUB_SOURCES as _TOPHUB_SOURCES
+    except Exception:
+        _TOPHUB_SOURCES = {}
+
+    raw_items: List[Any] = []
+    for n in news_list:
+        title = n.get("title") or ""
+        url = n.get("url") or ""
+        hot_value = n.get("hot_value") or ""
+        source_id = str(n.get("source_id") or "")
+        source_name = n.get("source") or n.get("source_name") or "Unknown"
+        rank = n.get("rank") if isinstance(n.get("rank"), int) else None
+        ts = n.get("timestamp") or collection_time
+
+        if source_name == "Hacker News":
+            platform_id = "hn"
+        elif source_id in _TOPHUB_SOURCES:
+            plat = _TOPHUB_SOURCES[source_id].get("platform") or "unknown"
+            if plat == "all":
+                plat_name = (n.get("platform") or "").strip()
+                platform_id = short_to_id.get(plat_name, "all")
+            else:
+                platform_id = str(plat)
+        else:
+            platform_id = "unknown"
+
+        raw_items.append(
+            make_raw_item(
+                platform_id=platform_id,
+                source_id=source_id,
+                source_name=source_name,
+                title=title,
+                url=url,
+                hot_value=hot_value,
+                rank=rank,
+                ts=ts,
+            )
+        )
+
+    # IMPORTANT:
+    # Default max_clusters=200 will often drop low-hot-score platforms (e.g. HN / Tieba) entirely,
+    # because items are sorted by hot_score and clustering stops creating new clusters after max_clusters.
+    # Increase max_clusters to keep long-tail platforms in the aligned cache, then filter/slice for UI.
+    clusters = cluster_items(raw_items, max_clusters=900)
+    cluster_payload = clusters_to_api(clusters, collection_time=collection_time)
+
+    # History snapshot for growth/delta/is_new
+    repo_root = Path(__file__).resolve().parents[1]
+    history_store = HotNewsHistoryStore(
+        HotNewsHistoryConfig(history_path=repo_root / "outputs" / "hotnews_history.jsonl")
+    )
+    prev = history_store.load_recent_snapshots(limit=1)
+    prev_snapshot = prev[0] if prev else None
+    cluster_payload = apply_history_signals(cluster_payload, prev_snapshot=prev_snapshot)
+    if not prev_snapshot or prev_snapshot.get("ts") != collection_time:
+        history_store.append_snapshot(make_history_snapshot(ts=collection_time, clusters=cluster_payload))
+
+    # Persist
+    cache_key = "aligned_with_hn_v2" if include_hn else "aligned_no_hn_v2"
+    source_sig = f"t:{collection_time}" + (f"|hn:{datetime.now().strftime('%Y-%m-%d')}" if include_hn else "")
+    raw_counts = _raw_platform_counts(raw_items)
+    cluster_counts = _cluster_platform_counts(cluster_payload)
+    logger.info(
+        f"[hot-news] rebuild stats: include_hn={include_hn} raw_counts(hn/tieba)={raw_counts.get('hn',0)}/{raw_counts.get('tieba',0)} "
+        f"cluster_counts(hn/tieba)={cluster_counts.get('hn',0)}/{cluster_counts.get('tieba',0)} total_clusters={len(cluster_payload)}"
+    )
+
+    hot_news_cache.save_to_cache(
+        {"collection_time": collection_time, "source_sig": source_sig, "clusters": cluster_payload},
+        cache_key=cache_key,
+    )
+    return {
+        "result": result,
+        "collection_time": collection_time,
+        "clusters": cluster_payload,
+        "cache_key": cache_key,
+        "raw_platform_counts": raw_counts,
+        "platform_cluster_counts": cluster_counts,
+    }
+
+
+def _ensure_background_refresh(*, include_hn: bool) -> None:
+    """Fire-and-forget refresh (dedup by cache_key)."""
+    cache_key = "aligned_with_hn_v2" if include_hn else "aligned_no_hn_v2"
+    task = _HOTNEWS_REFRESH_TASKS.get(cache_key)
+    if task and not task.done():
+        return
+
+    async def _runner():
+        try:
+            logger.info(f"[hot-news] background refresh start: {cache_key}")
+            await _rebuild_aligned_clusters(include_hn=include_hn, force_refresh=True)
+            logger.info(f"[hot-news] background refresh done: {cache_key}")
+        except Exception as e:
+            logger.exception(f"[hot-news] background refresh failed: {cache_key}: {e}")
+        finally:
+            _HOTNEWS_REFRESH_TASKS.pop(cache_key, None)
+
+    _HOTNEWS_REFRESH_TASKS[cache_key] = asyncio.create_task(_runner())
 
 @router.post("/analyze")
 async def analyze_news(request: NewsRequest):
@@ -679,175 +847,66 @@ async def collect_hot_news(request: HotNewsCollectRequest):
     try:
         logger.info("=" * 80)
         logger.info(f"🎯 收到热榜请求: platforms={request.platforms}, force_refresh={request.force_refresh}")
-        
-        # 平台名称映射关系 (前端ID → 后端source字段值)
-        platform_mapping = {
-            'weibo': '微博热搜榜',
-            'bilibili': 'B站全站日榜',
-            'douyin': '抖音热榜',
-            'baidu': '百度实时热点',
-            'tieba': '百度贴吧热榜',
-            'kuaishou': '快手热榜',
-            'zhihu': '知乎热榜',
-            'xhs': '小红书热榜',
-            'hot': '全平台热榜'  # 全榜聚合
-        }
-        
-        logger.info("📡 步骤1: 调用 tophub_collector.collect_news()")
-        result = await tophub_collector.collect_news(force_refresh=request.force_refresh)
-        logger.info(f"   ✓ TopHub返回: success={result['success']}, from_cache={result.get('from_cache', False)}")
-        
-        # 按平台分组
-        from collections import defaultdict
-        from datetime import datetime
-        news_by_platform = defaultdict(list)
-        news_list = result.get('news_list', [])
-        logger.info(f"   ✓ 初始 news_list 长度: {len(news_list)}")
-        
-        # 统计初始 source 分布
-        if news_list:
-            source_count = {}
-            for news in news_list[:10]:  # 只统计前10条
-                source = news.get('source', 'Unknown')
-                source_count[source] = source_count.get(source, 0) + 1
-            logger.info(f"   ✓ 前10条source分布: {source_count}")
-        
-        # 获取收集时间用作所有新闻的时间戳
-        collection_time = result.get('collection_time', datetime.now().isoformat())
 
-        # 如果包括 HN 平台，获取 HN 数据
-        # 注意：如果是从缓存加载的，news_list 可能已经包含 HN 数据，需要先过滤掉避免重复
-        if request.platforms and ('hn' in request.platforms or 'all' in request.platforms):
-            logger.info(f"📡 步骤2: 处理 HN 平台数据 (force_refresh={request.force_refresh})")
-            
-            # 先移除 news_list 中已存在的 HN 数据（避免重复添加）
-            original_len = len(news_list)
-            news_list = [news for news in news_list if news.get('source') != 'Hacker News']
-            removed_count = original_len - len(news_list)
-            if removed_count > 0:
-                logger.info(f"   ✓ 移除了 {removed_count} 条已存在的 HN 数据")
-            
-            logger.info(f"   → 调用 hn_hot_collector.collect_news(force_refresh={request.force_refresh})")
-            hn_result = await hn_hot_collector.collect_news(
-                source_ids=['top', 'best', 'new'],
-                max_items=30,
-                force_refresh=request.force_refresh
-            )
-            if hn_result.get('success'):
-                hn_news = hn_result.get('news_list', [])
-                from_cache = hn_result.get('from_cache', False)
-                logger.info(f"   ✓ HN返回: {len(hn_news)} 条新闻 (from_cache={from_cache})")
-                
-                # 为 HN 新闻添加 source 字段用于分组
-                for news in hn_news:
-                    news['source'] = 'Hacker News'
-                    if 'timestamp' not in news:
-                        news['timestamp'] = hn_result.get('collection_time', datetime.now().isoformat())
-                news_list.extend(hn_news)
-                logger.info(f"   ✓ 添加HN后 news_list 长度: {len(news_list)}")
-            else:
-                logger.warning(f"   ✗ HN数据获取失败")
-        else:
-            logger.info("📡 步骤2: 跳过 HN 平台（未请求）")
-        
-        # --- 新版：对齐聚类（支持缓存），前端可只请求一次再本地筛选 ---
-        include_hn = bool(request.platforms and ('hn' in request.platforms or 'all' in request.platforms))
+        # --- SWR: prefer cached aligned clusters, refresh in background when needed ---
+        include_hn = bool(request.platforms and ("hn" in request.platforms or "all" in request.platforms))
+        cache_key = "aligned_with_hn_v2" if include_hn else "aligned_no_hn_v2"
 
-        # Build a source signature for caching the expensive clustering result.
-        source_sig = f"t:{collection_time}"
-        if include_hn:
-            # best-effort: use hn cache time if available
-            source_sig += f"|hn:{datetime.now().strftime('%Y-%m-%d')}"
-
-        cache_key = "aligned_with_hn" if include_hn else "aligned_no_hn"
-        cached_payload = None
         if not request.force_refresh:
             cached = hot_news_cache.get_cached_data(cache_key=cache_key)
-            if cached and cached.get("source_sig") == source_sig and isinstance(cached.get("clusters"), list):
-                cached_payload = cached.get("clusters")
+            cached_clusters = (cached or {}).get("clusters")
+            if isinstance(cached_clusters, list) and cached_clusters:
+                refreshing = hot_news_cache.is_cache_expired(cache_key=cache_key)
+                if refreshing:
+                    _ensure_background_refresh(include_hn=include_hn)
 
-        short_to_id = {
-            "微博": "weibo",
-            "B站": "bilibili",
-            "哔哩哔哩": "bilibili",
-            "抖音": "douyin",
-            "百度": "baidu",
-            "贴吧": "tieba",
-            "快手": "kuaishou",
-            "知乎": "zhihu",
-            "小红书": "xhs",
-        }
-
-        if cached_payload is not None:
-            cluster_payload = copy.deepcopy(cached_payload)
-        else:
-            raw_items = []
-            # Map TopHub items -> RawItem (platform_id inferred via TOPHUB_SOURCES and item.platform for /hot)
-            try:
-                from app.services.tophub_collector import TOPHUB_SOURCES as _TOPHUB_SOURCES
-            except Exception:
-                _TOPHUB_SOURCES = {}
-
-            for n in news_list:
-                title = n.get("title") or ""
-                url = n.get("url") or ""
-                hot_value = n.get("hot_value") or ""
-                source_id = str(n.get("source_id") or "")
-                source_name = n.get("source") or n.get("source_name") or "Unknown"
-                rank = n.get("rank") if isinstance(n.get("rank"), int) else None
-                ts = n.get("timestamp") or collection_time
-
-                if source_name == "Hacker News":
-                    platform_id = "hn"
-                elif source_id in _TOPHUB_SOURCES:
-                    plat = _TOPHUB_SOURCES[source_id].get("platform") or "unknown"
-                    if plat == "all":
-                        plat_name = (n.get("platform") or "").strip()
-                        platform_id = short_to_id.get(plat_name, "all")
-                    else:
-                        platform_id = str(plat)
+                requested_set = set([p for p in (request.platforms or []) if p])
+                if not requested_set or "all" in requested_set:
+                    filtered_clusters = cached_clusters
                 else:
-                    platform_id = "unknown"
+                    def _cluster_has_platform(c: dict) -> bool:
+                        pids = c.get("platform_ids") or []
+                        if isinstance(pids, list) and any(pid in requested_set for pid in pids):
+                            return True
+                        for ev in c.get("evidence") or []:
+                            if ev.get("platform_id") in requested_set:
+                                return True
+                        return False
+                    filtered_clusters = [c for c in cached_clusters if _cluster_has_platform(c)]
 
-                raw_items.append(
-                    make_raw_item(
-                        platform_id=platform_id,
-                        source_id=source_id,
-                        source_name=source_name,
-                        title=title,
-                        url=url,
-                        hot_value=hot_value,
-                        rank=rank,
-                        ts=ts,
-                    )
-                )
+                return {
+                    "success": True,
+                    "total_news": len(filtered_clusters),
+                    "successful_sources": 0,
+                    "total_sources": 0,
+                    # NOTE: if we only return top-200 clusters for 'all', low-hot-score platforms like HN/Tieba
+                    # may never appear, causing frontend local filtering to show empty. Return more here.
+                    "news_list": filtered_clusters[:600],
+                    "news_by_platform": {},
+                    "collection_time": (cached or {}).get("collection_time"),
+                    "from_cache": True,
+                    "refreshing": bool(refreshing),
+                    "platform_cluster_counts": _cluster_platform_counts(cached_clusters),
+                    "debug": {
+                        "cache_key": cache_key,
+                        "requested_platforms": list(requested_set) if requested_set else ["all"],
+                        "clusters_in_cache": len(cached_clusters),
+                    },
+                }
 
-            clusters = cluster_items(raw_items)
-            cluster_payload = clusters_to_api(clusters, collection_time=collection_time)
+        # If force_refresh OR no cache available: rebuild synchronously.
+        rebuilt = await _rebuild_aligned_clusters(include_hn=include_hn, force_refresh=True)
+        cluster_payload = rebuilt["clusters"]
+        collection_time = rebuilt["collection_time"]
 
-            hot_news_cache.save_to_cache(
-                {"collection_time": collection_time, "source_sig": source_sig, "clusters": cluster_payload},
-                cache_key=cache_key,
-            )
-
-        # History snapshot for growth/delta/is_new
-        repo_root = Path(__file__).resolve().parents[1]
-        history_store = HotNewsHistoryStore(
-            HotNewsHistoryConfig(history_path=repo_root / "outputs" / "hotnews_history.jsonl")
-        )
-        prev = history_store.load_recent_snapshots(limit=1)
-        prev_snapshot = prev[0] if prev else None
-        cluster_payload = apply_history_signals(cluster_payload, prev_snapshot=prev_snapshot)
-
-        if not prev_snapshot or prev_snapshot.get("ts") != collection_time:
-            history_store.append_snapshot(make_history_snapshot(ts=collection_time, clusters=cluster_payload))
-
-        # Optional server-side filtering (frontend will do local filtering too)
         requested_set = set([p for p in (request.platforms or []) if p])
         if not requested_set or "all" in requested_set:
             filtered_clusters = cluster_payload
         else:
             def _cluster_has_platform(c: dict) -> bool:
+                pids = c.get("platform_ids") or []
+                if isinstance(pids, list) and any(pid in requested_set for pid in pids):
+                    return True
                 for ev in c.get("evidence") or []:
                     if ev.get("platform_id") in requested_set:
                         return True
@@ -855,15 +914,24 @@ async def collect_hot_news(request: HotNewsCollectRequest):
             filtered_clusters = [c for c in cluster_payload if _cluster_has_platform(c)]
 
         return {
-            "success": bool(result.get("success", True)),
+            "success": True,
             "total_news": len(filtered_clusters),
-            "successful_sources": result.get("successful_sources", 0),
-            "total_sources": result.get("total_sources", 0),
-            "news_list": filtered_clusters[:200],
-            "news_by_platform": {},  # frontend now filters locally
+            "successful_sources": (rebuilt.get("result") or {}).get("successful_sources", 0),
+            "total_sources": (rebuilt.get("result") or {}).get("total_sources", 0),
+            # Same rationale as cached path: keep enough clusters so local platform filter can find long-tail platforms.
+            "news_list": filtered_clusters[:600],
+            "news_by_platform": {},
             "collection_time": collection_time,
-            "from_cache": bool(result.get("from_cache", False)),
-            "error": result.get("error"),
+            "from_cache": False,
+            "refreshing": False,
+            "platform_cluster_counts": rebuilt.get("platform_cluster_counts") or _cluster_platform_counts(cluster_payload),
+            "raw_platform_counts": rebuilt.get("raw_platform_counts"),
+            "debug": {
+                "cache_key": rebuilt.get("cache_key"),
+                "include_hn": include_hn,
+                "requested_platforms": list(requested_set) if requested_set else ["all"],
+                "clusters_total": len(cluster_payload),
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"收集热点新闻失败: {str(e)}")
