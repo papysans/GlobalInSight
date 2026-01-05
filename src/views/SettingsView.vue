@@ -115,7 +115,14 @@
             <Server class="w-5 h-5 text-blue-600" />
             <h2 class="font-bold text-slate-800">API 接口配置</h2>
           </div>
-          <span class="text-xs text-slate-400">已配置 <span>{{ userApis.length }}</span> 个模型</span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">已配置 <span>{{ userApis.length }}</span> 个模型</span>
+            <button @click="clearAllSettings"
+              class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1.5 text-xs font-bold">
+              <Trash2 class="w-3.5 h-3.5" />
+              清除缓存
+            </button>
+          </div>
         </div>
         <div class="p-6 md:p-8 space-y-8">
           <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
@@ -572,6 +579,56 @@ const saveVolcengineConfig = async () => {
   } catch (e) {
     console.error('[Settings] 保存即梦配置失败:', e)
     alert('保存即梦配置失败: ' + (e?.message || e))
+  }
+}
+
+const clearAllSettings = async () => {
+  if (!confirm('确定要清除所有本地缓存吗？这将删除所有保存的 API Keys、平台选择和其他设置。')) {
+    return
+  }
+  
+  try {
+    // 清除所有相关的 localStorage
+    localStorage.removeItem('grandchart_llm_apis')
+    localStorage.removeItem('grandchart_selected_platforms')
+    localStorage.removeItem('grandchart_hot_news_config')
+    localStorage.removeItem('grandchart_volcengine_config')
+    localStorage.removeItem('grandchart_agent_overrides')
+    
+    // 重置所有状态
+    userApis.value = []
+    selectedPlatforms.value = []
+    hotNewsConfig.value = {
+      enabled: true,
+      platform_sources: [],
+      fetch_interval_hours: 4,
+      cache_ttl_minutes: 30,
+      max_items_per_platform: 100,
+    }
+    volcengine.value = {
+      access_key: '',
+      secret_key: '',
+    }
+    agentOverrides.value = {}
+    
+    // 清空后端设置
+    await api.updateUserSettings({ 
+      llm_apis: [],
+      volcengine: { access_key: '', secret_key: '' },
+      agent_llm_overrides: {}
+    })
+    await api.updateConfig({ hot_news_config: hotNewsConfig.value })
+    
+    configStore.saveUserApis([])
+    analysisStore.setSelectedPlatforms([])
+    
+    alert('所有设置已清除！页面即将刷新。')
+    setTimeout(() => {
+      location.reload()
+    }, 500)
+  } catch (e) {
+    console.error('[Settings] 清除设置失败:', e)
+    alert('清除设置时出错: ' + (e?.message || e))
   }
 }
 
