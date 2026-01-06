@@ -482,13 +482,13 @@ const toggleHotPlatform = (platformId, isChecked) => {
 const saveHotNewsConfig = async () => {
   try {
     await api.updateConfig({ hot_news_config: hotNewsConfig.value })
-      hotNewsConfigSaved.value = true
-      console.log('[Settings] 热榜配置已保存:', hotNewsConfig.value)
+    hotNewsConfigSaved.value = true
+    console.log('[Settings] 热榜配置已保存:', hotNewsConfig.value)
 
-      // 3 秒后隐藏保存提示
-      setTimeout(() => {
-        hotNewsConfigSaved.value = false
-      }, 3000)
+    // 3 秒后隐藏保存提示
+    setTimeout(() => {
+      hotNewsConfigSaved.value = false
+    }, 3000)
   } catch (error) {
     console.error('Failed to save hot news config:', error)
     alert('保存配置出错: ' + error.message)
@@ -586,7 +586,7 @@ const clearAllSettings = async () => {
   if (!confirm('确定要清除所有本地缓存吗？这将删除所有保存的 API Keys、平台选择和其他设置。')) {
     return
   }
-  
+
   try {
     // 清除所有相关的 localStorage
     localStorage.removeItem('grandchart_llm_apis')
@@ -594,7 +594,7 @@ const clearAllSettings = async () => {
     localStorage.removeItem('grandchart_hot_news_config')
     localStorage.removeItem('grandchart_volcengine_config')
     localStorage.removeItem('grandchart_agent_overrides')
-    
+
     // 重置所有状态
     userApis.value = []
     selectedPlatforms.value = []
@@ -610,18 +610,18 @@ const clearAllSettings = async () => {
       secret_key: '',
     }
     agentOverrides.value = {}
-    
+
     // 清空后端设置
-    await api.updateUserSettings({ 
+    await api.updateUserSettings({
       llm_apis: [],
       volcengine: { access_key: '', secret_key: '' },
       agent_llm_overrides: {}
     })
     await api.updateConfig({ hot_news_config: hotNewsConfig.value })
-    
+
     configStore.saveUserApis([])
     analysisStore.setSelectedPlatforms([])
-    
+
     alert('所有设置已清除！页面即将刷新。')
     setTimeout(() => {
       location.reload()

@@ -9,7 +9,7 @@ python-dotenv>=1.0.0
 httpx>=0.26.0
 apscheduler
 loguru
-volcengine-python-sdk
+volcengine>=1.0.200
 playwright>=1.40.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
