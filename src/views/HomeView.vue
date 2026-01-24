@@ -449,7 +449,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   Search, Sparkles, Square, TrendingUp, RefreshCw, Cpu, Bot, Lightbulb, Zap,
-  Smartphone, Wifi, Image, RefreshCcw, Heart, Star, MessageCircle, PenTool,
+  Smartphone, Wifi, Image as ImageIcon, RefreshCcw, Heart, Star, MessageCircle, PenTool,
   ChevronLeft, Share2, AlertTriangle, Download, Upload, Check, XCircle,
   Loader2, Copy, Shield, ThumbsUp, ThumbsDown, Glasses, Activity,
   Database, FileText, Brain, MessageSquare, PenLine, CheckCircle2, Circle, Loader
@@ -479,13 +479,19 @@ const generateTitleCardImage = async () => {
   if (currentDisplayIndex.value !== 0) {
     currentDisplayIndex.value = 0
     await nextTick()
+    // Give it a bit more time to mount and render
+    await new Promise(resolve => setTimeout(resolve, 300))
+  }
+  
+  // Polling for ref availability (max 5 attempts, 100ms interval)
+  for (let i = 0; i < 5; i++) {
+    if (xiaohongshuCardRef.value) {
+      return await xiaohongshuCardRef.value.generateImage()
+    }
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   
-  if (xiaohongshuCardRef.value) {
-    return await xiaohongshuCardRef.value.generateImage()
-  }
-  throw new Error('XiaohongshuCard component not ready')
+  throw new Error('XiaohongshuCard component not ready after waiting')
 }
 
 // 从热榜一键推演的缓存填充搜索框
@@ -592,6 +598,18 @@ watch(() => workflowStatus.value.current_step, (newStep) => {
 // emojiPosition ref is kept for parent control if needed, but component handles its own display
 // Actually we need emojiPosition state here because it's passed to component
 // And randomizeEmojiPosition is used by the component event
+
+
+// 随机化Emoji位置
+const randomizeEmojiPosition = () => {
+    const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+    // 避免和当前位置一样
+    let nextPos = emojiPosition.value
+    while (nextPos === emojiPosition.value) {
+        nextPos = positions[Math.floor(Math.random() * positions.length)]
+    }
+    emojiPosition.value = nextPos
+}
 
 
 // 工作流步骤配置
