@@ -9,6 +9,7 @@ from app.config import settings
 
 from app.services.crawler_router_service import crawler_router_service
 from app.services.image_generator import image_generator_service
+from app.services.xiaohongshu_publisher import xiaohongshu_publisher
 
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -193,6 +194,9 @@ class GraphState(TypedDict):
     # Safety control (backend-only)
     safety_blocked: bool
     safety_reason: Optional[str]
+    # Xiaohongshu Publish
+    xhs_publish_enabled: bool # Whether to auto-publish
+    xhs_publish_result: Optional[Dict[str, Any]]
 
 # --- 2. LLM Setup ---
 # LLMs are now retrieved via get_agent_llm() inside nodes or globally if preferred.
@@ -259,12 +263,13 @@ WRITER_PROMPT = """
 - 关注"真相揭秘"或"幕后"角度
 - 请用**中文**撰写
 
-**标题要求（采用二极管标题法）**：
-1. 善于使用标题吸引人，制造反差或悬念
-2. 使用爆款关键词（如：真相、内幕、竟然、居然、没想到等）
-3. 了解小红书平台的标题特性（短小精悍、情绪化）
-4. 标题含适当的emoji表情
-5. 标题要能抓住眼球，让人忍不住点开
+**标题要求（必须严格遵守）**：
+1. **字数限制**：**务必控制在 20 字以内**（包含标点和Emoji），否则无法发布！
+2. 善于使用标题吸引人，制造反差或悬念
+3. 使用爆款关键词（如：真相、内幕、竟然、居然、没想到等）
+4. 了解小红书平台的标题特性（短小精悍、情绪化）
+5. 标题含适当的emoji表情（1-2个即可，不要过多导致超长）
+6. 标题要能抓住眼球，让人忍不住点开
 
 **正文要求**：
 1. **写作风格**：接地气、口语化、亲切自然，像和朋友聊天一样
@@ -274,10 +279,11 @@ WRITER_PROMPT = """
 5. **小技巧**：使用爆炸词（如：绝了、太绝了、真的、真的假的、天哪等）增强情绪
 6. **SEO关键词**：从生成的内容中抽取3~6个SEO关键词，生成#标签放在文章最后
 7. **禁止使用**：```首先、其次、然而、总的来说、最后```这些副词
+8. **字数控制**：总字数控制在 800 字以内
 
 **输出格式要求（必须严格遵守）**：
 你的输出必须包含以下两个标记，每个标记占一行：
-TITLE: [小红书风格标题，含emoji，使用二极管标题法和爆款关键词]
+TITLE: [20字以内的标题]
 CONTENT: [正文内容，分段，口语化，每段含emoji，文末加3-6个#标签]
 
 注意：你的输出应该是最终结果，禁止在输出中包含"标题"、"正文"、"标签"这些词本身。
@@ -661,6 +667,98 @@ async def image_generator_node(state: GraphState):
         "messages": [f"Image Generator: Generated {len(image_urls)} images."]
     }
 
+async def xiaohongshu_publisher_node(state: GraphState):
+    print("--- XHS PUBLISHER ---")
+    
+    # Check if enabled in state or global config (for now, rely on manual button or future auto-publish flag)
+    # The requirement was "call XHS MCP directly after generation", so we add the capability.
+    # We check settings first.
+    auto_publish = settings.XHS_MCP_CONFIG.get("auto_publish", False)
+    state_enabled = state.get("xhs_publish_enabled", False)
+    
+    if not (auto_publish or state_enabled):
+        print("[XHS] Auto-publish disabled, skipping.")
+        return {
+            "xhs_publish_result": None,
+            "messages": ["XHS Publisher: Skipped (auto-publish disabled)."]
+        }
+
+    if state.get("safety_blocked"):
+        return {
+            "xhs_publish_result": None,
+            "messages": ["XHS Publisher: Skipped (safety blocked)."]
+        }
+        
+    final_copy = state.get("final_copy", "")
+    image_urls = state.get("image_urls", [])
+    
+    if not final_copy or not image_urls:
+        print("[XHS] Missing content or images, skipping.")
+        return {
+            "xhs_publish_result": {"success": False, "error": "Missing content or images"},
+            "messages": ["XHS Publisher: Skipped (missing content/images)."]
+        }
+        
+    # Extract title and content from final_copy
+    # Expected format:
+    # TITLE: [title]
+    # CONTENT: [content]
+    
+    title = ""
+    content = ""
+    
+    # Simple parsing logic
+    lines = final_copy.split('\n')
+    is_content = False
+    content_lines = []
+    
+    for line in lines:
+        if line.strip().startswith("TITLE:"):
+            title = line.replace("TITLE:", "").strip()
+        elif line.strip().startswith("CONTENT:"):
+            content_lines.append(line.replace("CONTENT:", "").strip())
+            is_content = True
+        elif is_content:
+            content_lines.append(line)
+            
+    content = "\n".join(content_lines).strip()
+    
+    # Fallback parsing if structure is lost
+    if not title:
+        title = state["topic"]
+    if not content:
+        content = final_copy
+        
+    print(f"[XHS] Publishing: {title} with {len(image_urls)} images")
+    
+    # Check MCP status first
+    status = await xiaohongshu_publisher.get_status()
+    if not status["mcp_available"] or not status["login_status"]:
+        msg = f"XHS Publisher: Failed - {status['message']}"
+        print(f"[XHS] {msg}")
+        return {
+            "xhs_publish_result": {"success": False, "error": status['message']},
+            "messages": [msg]
+        }
+
+    # Publish
+    result = await xiaohongshu_publisher.publish_content(
+        title=title,
+        content=content,
+        images=image_urls
+    )
+    
+    msg = f"XHS Publisher: {result.get('message', 'Unknown status')}"
+    if result.get("success"):
+        print("[XHS] Publish success!")
+    else:
+        print(f"[XHS] Publish failed: {result.get('error')}")
+        
+    return {
+        "xhs_publish_result": result,
+        "messages": [msg]
+    }
+
 # --- 5. Conditional Logic ---
 
 def should_continue(state: GraphState):
@@ -706,6 +804,7 @@ workflow.add_node("analyst", analyst_node)
 workflow.add_node("debater", debater_node)
 workflow.add_node("writer", writer_node)
 workflow.add_node("image_generator", image_generator_node)
+workflow.add_node("xhs_publisher", xiaohongshu_publisher_node)
 
 workflow.set_entry_point("crawler_agent")
 
@@ -723,6 +822,7 @@ workflow.add_conditional_edges(
 )
 
 workflow.add_edge("writer", "image_generator")
-workflow.add_edge("image_generator", END)
+workflow.add_edge("image_generator", "xhs_publisher")
+workflow.add_edge("xhs_publisher", END)
 
 app_graph = workflow.compile()

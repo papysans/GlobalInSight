@@ -176,13 +176,18 @@ export const useAnalysisStore = defineStore("analysis", {
 
                     // Update final copy if writer finished
                     if (data.agent_name === "Writer" && data.step_content) {
-                        const content = data.step_content;
+                        // Strip agent prefix "Writer: " if present
+                        // Strip agent prefix "Writer: " if present (robust regex)
+                        const cleanContent = data.step_content.replace(/(?:^|\n)Writer:\s*/i, '').trim();
+                        const content = cleanContent;
                         let title = "生成文案";
                         let body = content;
 
                         if (content.includes("TITLE:")) {
                             const parts = content.split("CONTENT:");
                             title = parts[0].replace("TITLE:", "").trim();
+                            // Double check: remove Writer prefix if it still exists in title
+                            title = title.replace(/^Writer:\s*/i, '').replace(/^TITLE:\s*/i, '').trim();
                             body = parts[1] ? parts[1].trim() : "";
                         }
 

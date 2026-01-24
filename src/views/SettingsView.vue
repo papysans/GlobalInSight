@@ -246,6 +246,59 @@
           </div>
         </div>
       </div>
+
+      <!-- 小红书 MCP 配置 -->
+      <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2 justify-between">
+          <div class="flex items-center gap-2">
+            <Share2 class="w-5 h-5 text-red-500" />
+            <h2 class="font-bold text-slate-800">小红书 MCP 配置</h2>
+          </div>
+          <span class="text-xs text-slate-400">配置发布服务连接</span>
+        </div>
+        <div class="p-6 md:p-8 space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">MCP 服务地址 (HTTP)</label>
+            <div class="flex gap-2">
+              <input v-model="xhsConfig.mcp_url" type="text" placeholder="默认: http://localhost:18060/mcp"
+                class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-red-500 font-mono" />
+              <button @click="testXhsConnection" :disabled="xhsTesting"
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50">
+                <Plug class="w-3.5 h-3.5" v-if="!xhsTesting"/>
+                <Loader2 class="w-3.5 h-3.5 animate-spin" v-else/>
+                测试连接
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+              请确保已启动 xiaohongshu-mcp 服务。默认运行在端口 18060。
+            </p>
+          </div>
+
+          <!-- 连接状态反馈 -->
+          <div v-if="xhsTestResult" :class="[
+            'p-3 rounded-lg text-xs flex items-center gap-2 border',
+            xhsTestResult.success ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
+          ]">
+            <component :is="xhsTestResult.success ? Check : AlertTriangle" class="w-4 h-4" />
+            <span>{{ xhsTestResult.message }}</span>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+             <!-- 自动发布暂未完全实现，先隐藏开关，只提供 URL 配置 -->
+             <div></div>
+            <button @click="saveXhsConfig"
+              class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+              <Save class="w-4 h-4" /> 保存小红书配置
+            </button>
+          </div>
+
+           <div v-if="xhsConfigSaved"
+            class="p-3 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700 flex items-center gap-2">
+            <Check class="w-4 h-4" />
+            <span>小红书配置已保存</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Modal for API Editing -->
@@ -298,7 +351,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import {
-  Server, PlusCircle, Plus, Edit2, Trash2, Settings2, X, Save, Globe, Flame, Check, Image
+  Server, PlusCircle, Plus, Edit2, Trash2, Settings2, X, Save, Globe, Flame, Check, Image, Share2, Plug, Loader2, AlertTriangle
 } from 'lucide-vue-next'
 import { useConfigStore } from '../stores/config'
 import { useAnalysisStore } from '../stores/analysis'
@@ -582,6 +635,74 @@ const saveVolcengineConfig = async () => {
   }
 }
 
+// 小红书配置
+const xhsConfig = ref({
+  mcp_url: 'http://localhost:18060/mcp'
+})
+const xhsConfigSaved = ref(false)
+const xhsTesting = ref(false)
+const xhsTestResult = ref(null)
+
+const saveXhsConfig = async () => {
+  try {
+    // 暂时还没有对应的 API 更新方法，这里只是模拟保存并在本地生效
+    // 实际项目中应该有对应的后端配置更新接口
+    // 这里我们先保存到 localStorage 作为演示
+    localStorage.setItem('grandchart_xhs_config', JSON.stringify(xhsConfig.value))
+    
+    xhsConfigSaved.value = true
+    setTimeout(() => {
+      xhsConfigSaved.value = false
+    }, 3000)
+  } catch (e) {
+    console.error('[Settings] 保存小红书配置失败:', e)
+    alert('保存小红书配置失败: ' + (e?.message || e))
+  }
+}
+
+const testXhsConnection = async () => {
+  xhsTesting.value = true
+  xhsTestResult.value = null
+  try {
+    // 尝试调用后端检查接口
+    // 这里假设后端通过环境变量等方式知道了 mcp_url，或者我们在请求头/体中传过去
+    // 为了简单起见，这里复用 getXhsStatus，它目前是直接调用后端默认配置的
+    const res = await api.getXhsStatus()
+    if (res.mcp_available) {
+      xhsTestResult.value = {
+        success: true,
+        message: `连接成功 (已登录: ${res.login_status ? '是' : '否'})`
+      }
+    } else {
+      xhsTestResult.value = {
+        success: false,
+        message: '连接失败: 服务未启动或不可达'
+      }
+    }
+  } catch (e) {
+    xhsTestResult.value = {
+      success: false,
+      message: '连接请求出错: ' + (e.message || '未知错误')
+    }
+  } finally {
+    xhsTesting.value = false
+  }
+}
+
+const loadXhsConfig = () => {
+  const saved = localStorage.getItem('grandchart_xhs_config')
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved)
+      if (parsed.mcp_url) {
+        xhsConfig.value.mcp_url = parsed.mcp_url
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
 const clearAllSettings = async () => {
   if (!confirm('确定要清除所有本地缓存吗？这将删除所有保存的 API Keys、平台选择和其他设置。')) {
     return
@@ -594,6 +715,7 @@ const clearAllSettings = async () => {
     localStorage.removeItem('grandchart_hot_news_config')
     localStorage.removeItem('grandchart_volcengine_config')
     localStorage.removeItem('grandchart_agent_overrides')
+    localStorage.removeItem('grandchart_xhs_config')
 
     // 重置所有状态
     userApis.value = []
@@ -610,6 +732,7 @@ const clearAllSettings = async () => {
       secret_key: '',
     }
     agentOverrides.value = {}
+    xhsConfig.value = { mcp_url: 'http://localhost:18060/mcp' }
 
     // 清空后端设置
     await api.updateUserSettings({
@@ -637,5 +760,6 @@ onMounted(() => {
   loadUserSettings()
   loadPlatformSelection()
   loadHotNewsConfig()
+  loadXhsConfig()
 })
 </script>

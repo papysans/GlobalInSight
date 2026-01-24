@@ -14,6 +14,7 @@ from app.schemas import (
     HotNewsInterpretResponse,
     UserSettingsResponse,
     UserSettingsUpdateRequest,
+    XhsPublishRequest,
 )
 from app.services.workflow import app_graph
 from app.services.workflow_status import workflow_status
@@ -1075,3 +1076,58 @@ async def get_supported_platforms():
         "total_supported": len(TOPHUB_SOURCES) + 1,
         "total_pending": len(PENDING_PLATFORMS)
     }
+
+
+# --- 小红书 MCP 发布接口 ---
+
+@router.get("/xhs/status")
+async def get_xhs_status():
+    """检查小红书 MCP 服务状态和登录状态"""
+    from app.services.xiaohongshu_publisher import xiaohongshu_publisher
+    from app.schemas import XhsStatusResponse
+    
+    status = await xiaohongshu_publisher.get_status()
+    return XhsStatusResponse(
+        mcp_available=status.get("mcp_available", False),
+        login_status=status.get("login_status", False),
+        message=status.get("message", "")
+    )
+
+
+@router.post("/xhs/publish")
+async def publish_to_xhs(request: XhsPublishRequest):
+    """手动发布内容到小红书
+    
+    请求体：
+    - title: 标题
+    - content: 正文内容
+    - images: 图片列表（本地路径或 HTTP URL）
+    """
+    from app.services.xiaohongshu_publisher import xiaohongshu_publisher
+    from app.schemas import XhsPublishRequest, XhsPublishResponse
+    
+    if not request.title or not request.content:
+        return XhsPublishResponse(
+            success=False,
+            message="标题和内容不能为空"
+        )
+    
+    if not request.images:
+        return XhsPublishResponse(
+            success=False,
+            message="至少需要一张图片"
+        )
+    
+    result = await xiaohongshu_publisher.publish_content(
+        title=request.title,
+        content=request.content,
+        images=request.images
+    )
+    
+    return XhsPublishResponse(
+        success=result.get("success", False),
+        message=result.get("message") or result.get("error", "发布失败"),
+        data=result.get("data")
+    )
+
+

@@ -199,3 +199,25 @@ class GenerateKeywordsResponse(BaseModel):
     used_llm: bool = True  # 是否使用了LLM
     cache_hit: bool = False  # 是否命中缓存
     llm_reasoning: Optional[str] = None  # LLM生成时的推理过程/说明（前300字符）
+
+
+# --- 小红书发布相关 Schema ---
+class XhsPublishRequest(BaseModel):
+    """小红书发布请求"""
+    title: str
+    content: str
+    images: List[str] = []  # 图片列表（本地路径或 HTTP URL）
+
+
+class XhsPublishResponse(BaseModel):
+    """小红书发布响应"""
+    success: bool
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+
+class XhsStatusResponse(BaseModel):
+    """小红书 MCP 状态响应"""
+    mcp_available: bool
+    login_status: bool
+    message: str

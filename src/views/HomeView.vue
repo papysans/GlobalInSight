@@ -139,6 +139,7 @@
                 <span class="text-slate-400 font-normal text-[10px]">{{ activeModelDisplay }}</span>
               </div>
               <div
+                ref="debateContainerRef"
                 class="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 text-sm bg-white/50 relative scroll-smooth">
                 <!-- 调试信息 -->
                 <div v-if="false" class="text-xs text-red-500 p-2 bg-red-50 mb-2">
@@ -395,6 +396,39 @@
               <Copy class="w-3 h-3" /> 复制全文
             </button>
           </div>
+
+          <!-- 底部栏：状态指示 + 发布按钮 -->
+          <div class="mt-2 flex items-center justify-between px-1">
+            <!-- 小红书 MCP 状态指示 -->
+            <div class="flex items-center gap-2 text-[10px]">
+              <div v-if="xhsStatus.loading" class="text-slate-400 flex items-center gap-1">
+                <Loader2 class="w-2.5 h-2.5 animate-spin" /> 检查服务...
+              </div>
+              <div v-else-if="xhsStatus.mcp_available && xhsStatus.login_status" class="text-green-600 flex items-center gap-1" title="服务正常，已登录">
+                <Check class="w-2.5 h-2.5" /> 小红书已连接
+              </div>
+              <div v-else-if="xhsStatus.mcp_available && !xhsStatus.login_status" class="text-orange-500 flex items-center gap-1 cursor-help" title="MCP服务已启动，但需要登录小红书">
+                <AlertTriangle class="w-2.5 h-2.5" /> 需登录小红书
+              </div>
+              <div v-else class="text-slate-400 flex items-center gap-1 cursor-help" title="请先启动 xiaohongshu-mcp 服务">
+                <XCircle class="w-2.5 h-2.5" /> 服务未连接
+              </div>
+            </div>
+
+            <!-- 小红书发布按钮 -->
+            <button @click="publishToXhs" 
+              :disabled="!finalCopy || finalCopy.length === 0 || isPublishing || !xhsStatus.mcp_available || !xhsStatus.login_status"
+              :class="[
+                'px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed',
+                (!xhsStatus.mcp_available || !xhsStatus.login_status) ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-red-500 hover:bg-red-600 text-white border border-red-500'
+              ]"
+              :title="(!xhsStatus.mcp_available ? 'MCP服务未启动' : (!xhsStatus.login_status ? '小红书未登录' : '点击发布'))"
+            >
+              <Upload v-if="!isPublishing" class="w-3 h-3" />
+              <Loader2 v-else class="w-3 h-3 animate-spin" />
+              {{ isPublishing ? '发布中...' : '发布到小红书' }}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -402,12 +436,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   Search, Sparkles, Square, TrendingUp, RefreshCw, Cpu, Bot, Lightbulb, Zap,
   Smartphone, Wifi, Image, RefreshCcw, Heart, Star, MessageCircle, PenTool,
-  ChevronLeft, Share2, AlertTriangle, Download,
+  ChevronLeft, Share2, AlertTriangle, Download, Upload, Check, XCircle,
   Loader2, Copy, Shield, ThumbsUp, ThumbsDown, Glasses, Activity,
   Database, FileText, Brain, MessageSquare, PenLine, CheckCircle2, Circle, Loader
 } from 'lucide-vue-next'
@@ -492,6 +526,16 @@ const maxStepIndex = ref(-1)
 const maxProgress = ref(0)
 const preloadedImages = ref(new Set()) // 已预加载的图片URL集合
 const imageLoading = ref(false) // 当前图片加载状态
+const debateContainerRef = ref(null) // 辩论日志容器 ref
+
+// 滚动到辩论日志底部
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (debateContainerRef.value) {
+      debateContainerRef.value.scrollTop = debateContainerRef.value.scrollHeight
+    }
+  })
+}
 
 // 监听进度变化，记录达到的最高进度，防止在循环步骤中跳跃
 watch(() => workflowStatus.value.progress, (newProgress) => {
@@ -894,6 +938,8 @@ watch(storeLogs, (newLogs, oldLogs) => {
         console.log('[HomeView] ➕ 添加辩论日志:', logEntry.name, '到数组，当前长度:', debateLogs.value.length)
         debateLogs.value.push(logEntry)
         console.log('[HomeView] ✅ 添加后数组长度:', debateLogs.value.length, '最新条目:', debateLogs.value[debateLogs.value.length - 1])
+        // 自动滚动到底部
+        scrollToBottom()
 
         // 处理Writer输出，更新预览
         if (log.agent_name === 'Writer' && log.step_content) {
@@ -1056,9 +1102,73 @@ const exportAllImages = async () => {
   }
 }
 
+// --- 小红书发布相关 ---
+const xhsStatus = ref({
+  mcp_available: false,
+  login_status: false,
+  message: '',
+  loading: false
+})
+const isPublishing = ref(false)
+
+const checkXhsStatus = async () => {
+  xhsStatus.value.loading = true
+  try {
+    const res = await api.getXhsStatus()
+    xhsStatus.value = {
+      mcp_available: res.mcp_available,
+      login_status: res.login_status,
+      message: res.message,
+      loading: false
+    }
+  } catch (e) {
+    console.warn('[HomeView] Failed to check XHS status', e)
+    xhsStatus.value = {
+      mcp_available: false,
+      login_status: false,
+      message: '无法连接到后端服务',
+      loading: false
+    }
+  }
+}
+
+const publishToXhs = async () => {
+  if (!analysisStore.finalCopy.title || !analysisStore.finalCopy.body) return
+  
+  // 检查是否有关联图片
+  const images = analysisStore.imageUrls || []
+  if (images.length === 0) {
+    alert('发布失败：至少需要一张配图')
+    return
+  }
+
+  if (!confirm('确定要根据当前标题、正文和配图发布到小红书吗？')) return
+
+  isPublishing.value = true
+  try {
+    const res = await api.publishToXhs({
+      title: analysisStore.finalCopy.title,
+      content: analysisStore.finalCopy.body,
+      images: images
+    })
+
+    if (res.success) {
+      alert(`发布成功！\n${res.message}`)
+    } else {
+      alert(`发布失败：${res.message}`)
+    }
+  } catch (e) {
+    console.error('[HomeView] Publish to XHS failed', e)
+    alert(`发布请求出错: ${e.message || e}`)
+  } finally {
+    isPublishing.value = false
+  }
+}
+
 onMounted(() => {
   refreshTrending()
   hydrateHotTopicDraft()
+  checkXhsStatus()
 })
 </script>
 

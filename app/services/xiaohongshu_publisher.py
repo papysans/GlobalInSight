@@ -1,0 +1,285 @@
+"""
+小红书 MCP 发布服务
+
+通过 HTTP 调用 xiaohongshu-mcp 服务发布内容到小红书。
+MCP 服务地址：https://github.com/xpzouying/xiaohongshu-mcp
+"""
+
+import asyncio
+import httpx
+from typing import List, Dict, Any, Optional
+from loguru import logger
+
+
+class XiaohongshuPublisher:
+    """小红书 MCP 发布客户端"""
+
+    def __init__(self, mcp_url: str = "http://localhost:18060/mcp"):
+        self.mcp_url = mcp_url
+        self._request_id = 0
+
+    def _next_request_id(self) -> int:
+        """生成下一个请求 ID"""
+        self._request_id += 1
+        return self._request_id
+
+    async def _call_mcp(
+        self,
+        tool_name: str,
+        arguments: Optional[Dict[str, Any]] = None,
+        timeout: float = 60.0,
+    ) -> Dict[str, Any]:
+        """
+        调用 MCP 工具 (使用 HTTP 批处理模式以确保 Session 初始化)
+
+        Args:
+            tool_name: MCP 工具名称
+            arguments: 工具参数
+            timeout: 超时时间（秒）
+
+        Returns:
+            MCP 响应结果
+        """
+        # 1. Initialize Request
+        init_id = self._next_request_id()
+        init_req = {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "xiaohongshu-client", "version": "1.0"}
+            },
+            "id": init_id,
+        }
+
+        # 2. Initialized Notification
+        initialized_req = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {}
+        }
+
+        # 3. Tool Call Request
+        call_id = self._next_request_id()
+        call_req = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments or {},
+            },
+            "id": call_id,
+        }
+
+        # Batch Payload
+        payload = [init_req, initialized_req, call_req]
+
+        logger.info(f"[XHS MCP] Calling tool: {tool_name}, batch_mode=True, call_id: {call_id}")
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    self.mcp_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+                results = response.json()
+
+                if not isinstance(results, list):
+                    return {"success": False, "error": f"Invalid batch response type: {type(results)}"}
+
+                # Find the result for our tool call
+                tool_result = None
+                for res in results:
+                    if res.get("id") == call_id:
+                        tool_result = res
+                        break
+                
+                if not tool_result:
+                    # Check for initialize errors
+                    for res in results:
+                        if "error" in res:
+                            logger.error(f"[XHS MCP] Batch error (id={res.get('id')}): {res['error']}")
+                            return {
+                                "success": False, 
+                                "error": f"MCP Error: {res['error'].get('message', res['error'])}"
+                            }
+                    return {"success": False, "error": "Tool call response not found in batch"}
+
+                if "error" in tool_result:
+                    error = tool_result["error"]
+                    logger.error(f"[XHS MCP] Tool Error: {error}")
+                    return {
+                        "success": False,
+                        "error": error.get("message", str(error)),
+                        "code": error.get("code"),
+                    }
+
+                logger.info(f"[XHS MCP] Tool {tool_name} succeeded")
+                return {"success": True, "result": tool_result.get("result")}
+
+        except httpx.ConnectError as e:
+            logger.error(f"[XHS MCP] Connection error: {e}")
+            return {
+                "success": False,
+                "error": "无法连接到小红书 MCP 服务，请确保服务已启动",
+            }
+        except httpx.TimeoutException as e:
+            logger.error(f"[XHS MCP] Timeout: {e}")
+            return {"success": False, "error": "请求超时，请稍后重试"}
+        except Exception as e:
+            logger.error(f"[XHS MCP] Unexpected error: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def is_available(self) -> bool:
+        """
+        检查 MCP 服务是否可用
+        """
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # 仅发送 initialize 请求检查
+                request_id = self._next_request_id()
+                payload = {
+                    "jsonrpc": "2.0",
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "health-check", "version": "1.0"}
+                    },
+                    "id": request_id,
+                }
+                response = await client.post(
+                    self.mcp_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+                return True
+        except Exception as e:
+            logger.debug(f"[XHS MCP] Service not available: {e}")
+            return False
+
+    async def check_login_status(self) -> Dict[str, Any]:
+        """
+        检查小红书登录状态
+
+        Returns:
+            登录状态信息
+        """
+        result = await self._call_mcp("check_login_status", timeout=10.0)
+
+        if result.get("success"):
+            # 解析 MCP 返回的登录状态
+            mcp_result = result.get("result", {})
+            # MCP 返回格式可能是 {"content": [{"type": "text", "text": "..."}]}
+            content = mcp_result.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                text = content[0].get("text", "")
+                is_logged_in = "已登录" in text or "logged in" in text.lower()
+                return {
+                    "success": True,
+                    "logged_in": is_logged_in,
+                    "message": text,
+                }
+            return {
+                "success": True,
+                "logged_in": True,
+                "message": "登录状态检查成功",
+            }
+
+        return {
+            "success": False,
+            "logged_in": False,
+            "message": result.get("error", "登录状态检查失败"),
+        }
+
+    async def publish_content(
+        self,
+        title: str,
+        content: str,
+        images: List[str],
+    ) -> Dict[str, Any]:
+        """
+        发布图文内容到小红书
+
+        Args:
+            title: 标题
+            content: 正文内容
+            images: 图片列表（支持本地绝对路径或 HTTP URL）
+
+        Returns:
+            发布结果
+        """
+        if not title or not content:
+            return {
+                "success": False,
+                "error": "标题和内容不能为空",
+            }
+
+        if not images:
+            return {
+                "success": False,
+                "error": "至少需要一张图片",
+            }
+
+        logger.info(f"[XHS MCP] Publishing: title='{title[:30]}...', images={len(images)}")
+
+        result = await self._call_mcp(
+            "publish_content",
+            {
+                "title": title,
+                "content": content,
+                "images": images,
+            },
+            timeout=120.0,  # 发布可能需要较长时间
+        )
+
+        if result.get("success"):
+            mcp_result = result.get("result", {})
+            content_list = mcp_result.get("content", [])
+            message = ""
+            if content_list and isinstance(content_list, list) and len(content_list) > 0:
+                message = content_list[0].get("text", "")
+
+            return {
+                "success": True,
+                "message": message or "发布成功",
+                "data": mcp_result,
+            }
+
+        return {
+            "success": False,
+            "error": result.get("error", "发布失败"),
+        }
+
+    async def get_status(self) -> Dict[str, Any]:
+        """
+        获取小红书 MCP 服务完整状态
+
+        Returns:
+            服务状态信息
+        """
+        # 检查服务可用性
+        is_available = await self.is_available()
+        if not is_available:
+            return {
+                "mcp_available": False,
+                "login_status": False,
+                "message": "小红书 MCP 服务未启动或无法连接",
+            }
+
+        # 检查登录状态
+        login_result = await self.check_login_status()
+
+        return {
+            "mcp_available": True,
+            "login_status": login_result.get("logged_in", False),
+            "message": login_result.get("message", ""),
+        }
+
+
+# 全局单例
+xiaohongshu_publisher = XiaohongshuPublisher()

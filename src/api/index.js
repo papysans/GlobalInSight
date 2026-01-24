@@ -110,9 +110,9 @@ export const api = {
     async analyze(payload, onMessage) {
         return streamRequest(
             "/analyze", {
-                method: "POST",
-                body: JSON.stringify(payload),
-            },
+            method: "POST",
+            body: JSON.stringify(payload),
+        },
             onMessage
         );
     },
@@ -236,6 +236,28 @@ export const api = {
                 platforms: payload.platforms || ["all"],
                 force_refresh: payload.force_refresh || false,
             }),
+        });
+    },
+
+    // --- 小红书 MCP 发布接口 ---
+
+    /**
+     * 获取小红书 MCP 服务状态
+     * @returns {Promise<{mcp_available: boolean, login_status: boolean, message: string}>}
+     */
+    async getXhsStatus() {
+        return request("/xhs/status");
+    },
+
+    /**
+     * 发布内容到小红书
+     * @param {Object} payload - { title: string, content: string, images: string[] }
+     * @returns {Promise<{success: boolean, message: string, data?: any}>}
+     */
+    async publishToXhs(payload) {
+        return request("/xhs/publish", {
+            method: "POST",
+            body: JSON.stringify(payload),
         });
     },
 };

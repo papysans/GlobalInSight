@@ -124,4 +124,11 @@ class Config:
         "max_items_per_platform": 100,
     }
 
+    # --- 小红书 MCP 发布设置 ---
+    XHS_MCP_CONFIG = {
+        "enabled": True,  # 是否启用小红书发布功能
+        "mcp_url": os.getenv("XHS_MCP_URL", "http://localhost:18060/mcp"),
+        "auto_publish": False,  # 工作流完成后是否自动发布
+    }
+
 settings = Config()
