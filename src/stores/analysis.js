@@ -23,18 +23,35 @@ export const useAnalysisStore = defineStore("analysis", {
             return [];
         };
 
+        // 从 sessionStorage 恢复分析结果（页面导航时保留）
+        const loadResultsFromSession = () => {
+            const saved = sessionStorage.getItem("grandchart_analysis_results");
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    console.error("Failed to load analysis results from sessionStorage:", e);
+                }
+            }
+            return null;
+        };
+
+        const cachedResults = loadResultsFromSession();
+
         return {
-            logs: [],
-            finalCopy: { title: "", body: "" },
+            logs: cachedResults?.logs || [],
+            finalCopy: cachedResults?.finalCopy || { title: "", body: "" },
             isLoading: false,
             error: null,
             selectedPlatforms: loadPlatformsFromStorage(), // 从 localStorage 恢复选中的平台
-            insight: "", // 核心洞察
-            insightTitle: "", // 洞察标题
-            insightSubtitle: "", // 洞察副标题
-            contrastData: null, // 舆论对比数据
-            dataUnlocked: false, // 数据是否解锁
-            imageUrls: [], // 生成的配图 URL
+            insight: cachedResults?.insight || "", // 核心洞察
+            insightTitle: cachedResults?.insightTitle || "", // 洞察标题
+            insightSubtitle: cachedResults?.insightSubtitle || "", // 洞察副标题
+            contrastData: cachedResults?.contrastData || null, // 舆论对比数据
+            dataUnlocked: cachedResults?.dataUnlocked || false, // 数据是否解锁
+            imageUrls: cachedResults?.imageUrls || [], // 生成的配图 URL
+            titleEmoji: cachedResults?.titleEmoji || "🤔", // Title Card emoji (default)
+            titleTheme: cachedResults?.titleTheme || "cool", // Title Card color theme: warm/cool/alert/dark
         };
     },
 
@@ -65,6 +82,27 @@ export const useAnalysisStore = defineStore("analysis", {
             }
         },
 
+        // 保存分析结果到 sessionStorage（页面导航时保留）
+        saveResultsToSession() {
+            const results = {
+                logs: this.logs,
+                finalCopy: this.finalCopy,
+                insight: this.insight,
+                insightTitle: this.insightTitle,
+                insightSubtitle: this.insightSubtitle,
+                contrastData: this.contrastData,
+                dataUnlocked: this.dataUnlocked,
+                imageUrls: this.imageUrls,
+                titleEmoji: this.titleEmoji,
+                titleTheme: this.titleTheme,
+            };
+            try {
+                sessionStorage.setItem("grandchart_analysis_results", JSON.stringify(results));
+            } catch (e) {
+                console.error("Failed to save analysis results to sessionStorage:", e);
+            }
+        },
+
         async startAnalysis(payload) {
             this.logs = [];
             this.finalCopy = { title: "", body: "" };
@@ -74,6 +112,8 @@ export const useAnalysisStore = defineStore("analysis", {
             this.contrastData = null;
             this.dataUnlocked = false;
             this.imageUrls = [];
+            this.titleEmoji = "🤔";
+            this.titleTheme = "cool";
             this.isLoading = true;
             this.error = null;
 
@@ -172,6 +212,7 @@ export const useAnalysisStore = defineStore("analysis", {
                                 this.insightSubtitle = parts[1].trim();
                             }
                         }
+                        this.saveResultsToSession(); // Persist after Analyst insight
                     }
 
                     // Update final copy if writer finished
@@ -185,16 +226,30 @@ export const useAnalysisStore = defineStore("analysis", {
 
                         if (content.includes("TITLE:")) {
                             const parts = content.split("CONTENT:");
-                            title = parts[0].replace("TITLE:", "").trim();
+                            const headerPart = parts[0];
+                            title = headerPart.split("EMOJI:")[0].replace("TITLE:", "").trim();
                             // Double check: remove Writer prefix if it still exists in title
                             title = title.replace(/^Writer:\s*/i, '').replace(/^TITLE:\s*/i, '').trim();
                             body = parts[1] ? parts[1].trim() : "";
+
+                            // Parse EMOJI if present
+                            const emojiMatch = headerPart.match(/EMOJI:\s*(.+?)(?:\n|THEME:|$)/i);
+                            if (emojiMatch && emojiMatch[1]) {
+                                this.titleEmoji = emojiMatch[1].trim();
+                            }
+
+                            // Parse THEME if present
+                            const themeMatch = headerPart.match(/THEME:\s*(warm|cool|alert|dark)/i);
+                            if (themeMatch && themeMatch[1]) {
+                                this.titleTheme = themeMatch[1].toLowerCase();
+                            }
                         }
 
                         this.finalCopy = {
                             title: title,
                             body: body,
                         };
+                        this.saveResultsToSession(); // Persist after Writer output
                     }
 
                     // 处理 Image Generator 输出
@@ -207,11 +262,13 @@ export const useAnalysisStore = defineStore("analysis", {
                             data.image_urls
                         );
                         this.imageUrls = data.image_urls;
+                        this.saveResultsToSession(); // Persist after Image Generator output
                     }
 
                     // 如果完成，解锁数据
                     if (data.status === "finished") {
                         this.dataUnlocked = true;
+                        this.saveResultsToSession(); // Persist final state
                         workflowStore.stopPolling();
                         workflowStore.fetchStatus(); // 最后更新一次状态
                     }

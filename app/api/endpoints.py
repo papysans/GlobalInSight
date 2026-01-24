@@ -1121,7 +1121,8 @@ async def publish_to_xhs(request: XhsPublishRequest):
     result = await xiaohongshu_publisher.publish_content(
         title=request.title,
         content=request.content,
-        images=request.images
+        images=request.images,
+        tags=request.tags
     )
     
     return XhsPublishResponse(

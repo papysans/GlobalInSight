@@ -6,9 +6,48 @@ MCP 服务地址：https://github.com/xpzouying/xiaohongshu-mcp
 """
 
 import asyncio
+import base64
 import httpx
+import os
+import tempfile
 from typing import List, Dict, Any, Optional
 from loguru import logger
+
+
+def _process_image(image: str) -> str:
+    """
+    处理图片路径/URL/Base64 数据
+    
+    - 如果是 Base64 data URL，保存为临时文件并返回路径
+    - 如果是普通 URL 或本地路径，直接返回
+    """
+    if image.startswith("data:image/"):
+        try:
+            # Parse data URL: data:image/png;base64,xxxxx
+            header, data = image.split(",", 1)
+            # Extract extension from header
+            ext = "png"
+            if "image/jpeg" in header or "image/jpg" in header:
+                ext = "jpg"
+            elif "image/png" in header:
+                ext = "png"
+            elif "image/gif" in header:
+                ext = "gif"
+            elif "image/webp" in header:
+                ext = "webp"
+            
+            # Decode and save to temp file
+            image_data = base64.b64decode(data)
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"xhs_upload_{id(image)}.{ext}")
+            with open(temp_path, "wb") as f:
+                f.write(image_data)
+            logger.info(f"[XHS] Converted Base64 image to temp file: {temp_path}")
+            return temp_path
+        except Exception as e:
+            logger.error(f"[XHS] Failed to process Base64 image: {e}")
+            return image  # Return original on error
+    return image
 
 
 class XiaohongshuPublisher:
@@ -201,6 +240,7 @@ class XiaohongshuPublisher:
         title: str,
         content: str,
         images: List[str],
+        tags: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         发布图文内容到小红书
@@ -225,15 +265,30 @@ class XiaohongshuPublisher:
                 "error": "至少需要一张图片",
             }
 
-        logger.info(f"[XHS MCP] Publishing: title='{title[:30]}...', images={len(images)}")
+        # Process images: convert Base64 data URLs to temp files
+        processed_images = [_process_image(img) for img in images]
+        
+        # Process tags: remove # prefix if present (MCP will add it)
+        processed_tags = []
+        if tags:
+            processed_tags = [tag.lstrip('#') for tag in tags if tag]
+        
+        logger.info(f"[XHS MCP] Publishing: title='{title[:30]}...', images={len(processed_images)}, tags={processed_tags}")
 
+        # Build MCP arguments
+        mcp_args = {
+            "title": title,
+            "content": content,
+            "images": processed_images,
+        }
+        
+        # Add tags if provided (XHS MCP handles topic selection via browser automation)
+        if processed_tags:
+            mcp_args["tags"] = processed_tags
+        
         result = await self._call_mcp(
             "publish_content",
-            {
-                "title": title,
-                "content": content,
-                "images": images,
-            },
+            mcp_args,
             timeout=120.0,  # 发布可能需要较长时间
         )
 

@@ -263,8 +263,14 @@ WRITER_PROMPT = """
 - 禁语：禁止使用“首先、其次、最后、综上所述”等连接词。
 - 标签：文末3-6个#标签。
 
+封面设计要素（必须）：
+- 根据内容情绪选择一个最能代表主题的emoji（如财经风险用⚠️或📉，科技用🤖，美食用🥗，惊爆用😱，思考用🤔，火热用🔥等）
+- 根据情绪选择配色: warm(暖色/积极), cool(冷色/科技), alert(警示/红色), dark(深色/严肃)
+
 输出格式（严格遵守）：
 TITLE: [标题]
+EMOJI: [单个emoji]
+THEME: [warm/cool/alert/dark]
 CONTENT:
 [1-2句结论开场，直接点破本质]
 [核心段落：3-5句话。将事件经过、关键数据、平台热度对比、来源出处等信息糅合成一段通顺的文字。可适当使用emoji（如⚡/🆚/📉）作为句内视觉分割，但不要换行罗列]
@@ -643,12 +649,16 @@ async def image_generator_node(state: GraphState):
         }
     final_copy = state["final_copy"]
     output_file = state.get("output_file")
+    initial_analysis = state.get("initial_analysis", "") # This contains the insight + analysis
     
     # Update status
     from app.services.workflow_status import workflow_status
     await workflow_status.update_step("image_generator")
     
-    image_urls = await image_generator_service.generate_images(final_copy)
+    # Extract insight if possible (it's embedded in the analysis string "INSIGHT: ...")
+    # But passing the whole analysis is also fine, the prompt generator can handle it.
+    # To be precise, let's pass the whole thing as 'insight' context.
+    image_urls = await image_generator_service.generate_images(final_copy, insight=initial_analysis)
     
     if output_file and os.path.exists(output_file) and image_urls:
         with open(output_file, "a", encoding="utf-8") as f:

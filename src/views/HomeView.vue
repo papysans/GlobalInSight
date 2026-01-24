@@ -200,6 +200,7 @@
             <Smartphone class="w-5 h-5 text-purple-600" /> 实时生成预览 (Preview)
           </h2>
 
+
           <div class="glass-card p-6 rounded-xl shadow-lg flex justify-center bg-slate-100/50">
             <div
               class="glass-card rounded-[3rem] overflow-hidden shadow-2xl bg-white w-full max-w-[320px] h-[680px] flex flex-col transform transition hover:scale-[1.02] duration-300"
@@ -247,14 +248,16 @@
 
                 <!-- 可滚动内容区 -->
                 <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-                  <!-- 图片区域：位于文案上方（固定比例占位，避免图片加载前塌陷导致文字上移） -->
-                  <div :class="[
-                    'relative overflow-hidden flex-shrink-0 transition-colors duration-500 aspect-[3/4]',
-                    phoneStyles[currentPhoneStyleIndex].bg
-                  ]">
+                  <!-- 图片区域：位于文案上方 -->
+                  <div 
+                    ref="phoneContentRef"
+                    :class="[
+                      'relative overflow-hidden flex-shrink-0 transition-colors duration-500 aspect-[3/4]',
+                      currentDisplayIndex === 0 ? dynamicTitleStyle.bg : 'bg-slate-100'
+                    ]"
+                  >
                     <!-- 优先显示生成的 AI 图片（固定容器比例 + 图片铺满，消除布局抖动） -->
                     <div
-                      v-if="analysisStore.imageUrls && analysisStore.imageUrls.length > 0"
                       class="relative w-full h-full"
                       style="touch-action: pan-y;"
                       @pointerdown="onPhonePointerDown"
@@ -263,9 +266,24 @@
                       @pointercancel="onPhonePointerUp"
                     >
                       <transition name="image-fade" mode="out-in">
+                        <!-- Case 1: Title Card (Index 0) -->
+                        <div v-if="currentDisplayIndex === 0" key="title-card" class="absolute inset-0 flex flex-col items-center justify-center opacity-100 transition-opacity duration-700 p-4 text-center">
+                            <div class="text-6xl mb-4 drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
+                              {{ analysisStore.titleEmoji || '🤔' }}
+                            </div>
+                            <h2 :class="[
+                              'text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100',
+                              dynamicTitleStyle.textColor
+                            ]">
+                              {{ xhsPreview.title ? xhsPreview.title.substring(0, 15) : '标题生成中...' }}
+                            </h2>
+                        </div>
+
+                        <!-- Case 2: AI Images (Index > 0) -->
                         <img
-                          :key="currentImageIndex"
-                          :src="analysisStore.imageUrls[currentImageIndex % analysisStore.imageUrls.length]"
+                          v-else
+                          :key="'img-' + currentDisplayIndex"
+                          :src="analysisStore.imageUrls[currentDisplayIndex - 1]"
                           class="absolute inset-0 w-full h-full object-cover block"
                           alt="AI Generated"
                           draggable="false"
@@ -277,56 +295,38 @@
                       </transition>
                       
                       <!-- 加载指示器 -->
-                      <div v-if="imageLoading" 
+                      <div v-if="imageLoading && currentDisplayIndex > 0" 
                         class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
                         <Loader2 class="w-6 h-6 text-blue-600 animate-spin" />
                       </div>
 
-                      <!-- AI 生成提示（贴近截图样式） -->
-                      <div
+                      <!-- AI 生成提示 (Only for AI Images) -->
+                      <div v-if="currentDisplayIndex > 0"
                         class="absolute top-2 left-2 flex items-center gap-1 bg-white/80 text-slate-700 text-[10px] px-2 py-1 rounded-full backdrop-blur-sm border border-slate-100">
                         <AlertTriangle class="w-3 h-3 text-slate-700" />
                         <span>内容可能使用AI技术生成</span>
                       </div>
 
-                      <!-- 多图指示器（小红书风格点点） -->
-                      <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      <!-- 多图指示器 (Title Card + AI Images) -->
+                       <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                        <!-- Dot for Title Card -->
+                        <div :class="[
+                          'w-1.5 h-1.5 rounded-full transition-all duration-300',
+                          currentDisplayIndex === 0 ? 'bg-white scale-125' : 'bg-white/50'
+                        ]"></div>
+                        <!-- Dots for AI Images -->
                         <div v-for="(_, i) in analysisStore.imageUrls" :key="i" :class="[
                           'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                          (currentImageIndex % analysisStore.imageUrls.length) === i ? 'bg-white scale-125' : 'bg-white/50'
+                          currentDisplayIndex === (i + 1) ? 'bg-white scale-125' : 'bg-white/50'
                         ]"></div>
                       </div>
 
                       <div
                         class="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm">
-                        {{ (currentImageIndex % analysisStore.imageUrls.length) + 1 }} / {{
-                          analysisStore.imageUrls.length }}
+                        {{ currentDisplayIndex + 1 }} / {{ (analysisStore.imageUrls?.length || 0) + 1 }}
                       </div>
-                    </div>
-
-                    <div v-else-if="!xhsPreview.title"
-                      class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 transition-opacity duration-300">
-                      <Image class="w-8 h-8 mb-2 opacity-50" />
-                      <span class="text-xs">AI 配图生成区</span>
-                    </div>
-                    <div v-else
-                      class="absolute inset-0 flex flex-col items-center justify-center opacity-100 transition-opacity duration-700 p-4 text-center">
-                      <div class="text-6xl mb-4 drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
-                        {{ phoneStyles[currentPhoneStyleIndex].icon }}
-                      </div>
-                      <h2 :class="[
-                        'text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100',
-                        phoneStyles[currentPhoneStyleIndex].textColor
-                      ]">
-                        {{ xhsPreview.title.substring(0, 15) }}
-                      </h2>
-                      <div
-                        class="absolute bottom-4 right-4 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                        点击切换风格
-                        <RefreshCcw class="w-3 h-3 inline" />
-                      </div>
-                    </div>
-                  </div>
+                    </div><!-- End of phone image container -->
+                  </div><!-- End of aspect ratio container -->
 
                   <!-- 文案区域 -->
                   <div class="p-4 flex-1 flex flex-col">
@@ -342,7 +342,7 @@
                       <div v-else class="prose prose-xs max-w-none" v-html="renderMarkdown(xhsPreview.content)"></div>
                     </div>
                   </div>
-                </div>
+                </div><!-- End of scrollable content -->
 
                 <!-- 底部固定互动栏 -->
                 <div
@@ -365,10 +365,10 @@
                     </span>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </div><!-- End of Screen Content -->
+            </div><!-- End of Phone Frame -->
+          </div><!-- End of Glass Card -->
+        </div><!-- End of Right Column -->
       </div>
 
       <!-- Copywriting Section -->
@@ -389,7 +389,7 @@
               :disabled="isExportingImages || !(analysisStore.imageUrls && analysisStore.imageUrls.length)"
               class="absolute top-3 right-28 px-3 py-1.5 bg-blue-600 border border-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
               <Download class="w-3 h-3" />
-              {{ isExportingImages ? '导出中...' : '导出图片' }}
+              {{ isExportingImages ? '导出中...' : '导出全部图片' }}
             </button>
             <button @click="copyToClipboard" :disabled="!finalCopy || finalCopy.length === 0"
               class="absolute top-3 right-3 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -450,6 +450,7 @@ import { useConfigStore } from '../stores/config'
 import { useWorkflowStore } from '../stores/workflow'
 import { api } from '../api'
 import MarkdownIt from 'markdown-it'
+import html2canvas from 'html2canvas'
 
 const md = new MarkdownIt()
 const analysisStore = useAnalysisStore()
@@ -521,7 +522,8 @@ const hotItemsAll = ref([])
 const hotWindowIndex = ref(0)
 const HOT_WINDOW_SIZE = 3
 const currentPhoneStyleIndex = ref(0)
-const currentImageIndex = ref(0)
+const currentDisplayIndex = ref(0) // 0: Title Card, 1+: AI Images
+const phoneContentRef = ref(null) // 用于html2canvas截图的DOM引用
 const maxStepIndex = ref(-1)
 const maxProgress = ref(0)
 const preloadedImages = ref(new Set()) // 已预加载的图片URL集合
@@ -564,6 +566,142 @@ const phoneStyles = [
   { bg: 'bg-red-50', icon: '🔥', textColor: 'text-red-900' },
   { bg: 'bg-emerald-50', icon: '🥗', textColor: 'text-emerald-900' }
 ]
+
+// Dynamic theme styles based on LLM output
+const themeStyles = {
+  warm: { bg: 'bg-gradient-to-br from-orange-50 to-amber-100', textColor: 'text-amber-900' },
+  cool: { bg: 'bg-gradient-to-br from-indigo-50 to-cyan-100', textColor: 'text-slate-800' },
+  alert: { bg: 'bg-gradient-to-br from-red-100 to-rose-200', textColor: 'text-red-900' },
+  dark: { bg: 'bg-gradient-to-br from-slate-800 to-slate-900', textColor: 'text-white' }
+}
+
+// Computed dynamic style for Title Card
+const dynamicTitleStyle = computed(() => {
+  const theme = analysisStore.titleTheme || 'cool'
+  return themeStyles[theme] || themeStyles.cool
+})
+
+// Canvas color mapping (Tailwind colors -> hex)
+const themeColorMap = {
+  warm: {
+    gradientStart: '#fff7ed', // orange-50
+    gradientEnd: '#fef3c7',   // amber-100
+    textColor: '#78350f'      // amber-900
+  },
+  cool: {
+    gradientStart: '#eef2ff', // indigo-50
+    gradientEnd: '#cffafe',   // cyan-100
+    textColor: '#1e293b'      // slate-800
+  },
+  alert: {
+    gradientStart: '#fee2e2', // red-100
+    gradientEnd: '#fecdd3',   // rose-200
+    textColor: '#7f1d1d'      // red-900
+  },
+  dark: {
+    gradientStart: '#1e293b', // slate-800
+    gradientEnd: '#0f172a',   // slate-900
+    textColor: '#ffffff'      // white
+  }
+}
+
+/**
+ * Generate Title Card image using Canvas API (no DOM screenshot)
+ * @param {Object} options - { title, emoji, theme }
+ * @returns {Promise<string>} - Base64 data URL of the image
+ */
+const generateTitleCardImage = async ({ title, emoji, theme }) => {
+  const canvas = document.createElement('canvas')
+  const WIDTH = 1080   // 小红书推荐宽度
+  const HEIGHT = 1440  // 3:4 比例
+  canvas.width = WIDTH
+  canvas.height = HEIGHT
+  const ctx = canvas.getContext('2d')
+  
+  // Get theme colors
+  const colors = themeColorMap[theme] || themeColorMap.cool
+  
+  // 1. Draw gradient background (bottom-right direction)
+  const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+  gradient.addColorStop(0, colors.gradientStart)
+  gradient.addColorStop(1, colors.gradientEnd)
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+  
+  // 2. Draw emoji (centered, large)
+  const emojiSize = 200
+  ctx.font = `${emojiSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(emoji || '🤔', WIDTH / 2, HEIGHT / 2 - 80)
+  
+  // 3. Draw title card background (rounded rect with blur effect simulation)
+  const titleText = title || '标题生成中...'
+  const padding = { x: 48, y: 24 }
+  const maxTitleWidth = WIDTH - 120 // Max width with margins
+  
+  // Dynamic font sizing to fit long titles
+  let fontSize = 56
+  ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
+  let textMetrics = ctx.measureText(titleText)
+  
+  // Reduce font size if title is too wide
+  while (textMetrics.width > maxTitleWidth && fontSize > 28) {
+    fontSize -= 4
+    ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
+    textMetrics = ctx.measureText(titleText)
+  }
+  
+  const bgWidth = Math.min(textMetrics.width + padding.x * 2, maxTitleWidth + padding.x * 2)
+  const bgHeight = fontSize + 24 + padding.y * 2
+  const bgX = (WIDTH - bgWidth) / 2
+  const bgY = HEIGHT / 2 + 60
+  
+  // Draw rounded rectangle background (semi-transparent white)
+  ctx.save()
+  ctx.translate(WIDTH / 2, bgY + bgHeight / 2)
+  ctx.rotate(-2 * Math.PI / 180) // -2 degree rotation
+  ctx.translate(-WIDTH / 2, -(bgY + bgHeight / 2))
+  
+  // Shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+  ctx.shadowBlur = 20
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 8
+  
+  // Background with rounded corners
+  const radius = 24
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+  ctx.beginPath()
+  ctx.moveTo(bgX + radius, bgY)
+  ctx.lineTo(bgX + bgWidth - radius, bgY)
+  ctx.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + radius)
+  ctx.lineTo(bgX + bgWidth, bgY + bgHeight - radius)
+  ctx.quadraticCurveTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - radius, bgY + bgHeight)
+  ctx.lineTo(bgX + radius, bgY + bgHeight)
+  ctx.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - radius)
+  ctx.lineTo(bgX, bgY + radius)
+  ctx.quadraticCurveTo(bgX, bgY, bgX + radius, bgY)
+  ctx.closePath()
+  ctx.fill()
+  
+  // Border
+  ctx.shadowColor = 'transparent'
+  ctx.strokeStyle = 'rgba(241, 245, 249, 1)' // slate-100
+  ctx.lineWidth = 2
+  ctx.stroke()
+  
+  // 4. Draw title text
+  ctx.fillStyle = colors.textColor
+  ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(titleText, WIDTH / 2, bgY + bgHeight / 2)
+  
+  ctx.restore()
+  
+  return canvas.toDataURL('image/png')
+}
 
 // 工作流步骤配置
 const workflowSteps = [
@@ -760,20 +898,20 @@ const refreshTrending = async () => {
 }
 
 const switchPhoneImage = () => {
-  if (analysisStore.imageUrls && analysisStore.imageUrls.length > 0) {
-    // 先显示加载态（避免切换瞬间出现空白/抖动）
-    imageLoading.value = true
-    // 预加载下一张图片（如果还没加载）
-    const nextIndex = (currentImageIndex.value + 1) % analysisStore.imageUrls.length
-    const nextUrl = analysisStore.imageUrls[nextIndex]
-    if (nextUrl && !preloadedImages.value.has(nextUrl)) {
-      preloadImages([nextUrl]).catch(err => console.warn('[HomeView] 预加载下一张图片失败:', err))
-    }
-    // 切换图片
-    currentImageIndex.value = nextIndex
-  } else {
-    currentPhoneStyleIndex.value = (currentPhoneStyleIndex.value + 1) % phoneStyles.length
+  const total = (analysisStore.imageUrls?.length || 0) + 1
+  const nextIndex = (currentDisplayIndex.value + 1) % total
+  
+  if (nextIndex > 0) {
+     // Preload if next is an image
+     const nextUrl = analysisStore.imageUrls[nextIndex - 1]
+     if (nextUrl && !preloadedImages.value.has(nextUrl)) {
+       imageLoading.value = true
+       preloadImages([nextUrl]).then(() => {
+          imageLoading.value = false
+       }).catch(err => console.warn('[HomeView] 预加载下一张图片失败:', err))
+     }
   }
+  currentDisplayIndex.value = nextIndex
 }
 
 // 手势：在图片区域左右拖拽/滑动切换图片（尽量模拟小红书的体验）
@@ -784,8 +922,7 @@ let swipeLastX = 0
 let swipeLock = null // 'x' | 'y' | null
 
 const onPhonePointerDown = (e) => {
-  // 仅在有图片时启用手势（无图时仍保留点击切换风格）
-  if (!(analysisStore.imageUrls && analysisStore.imageUrls.length > 0)) return
+  // Always enable swipe even if only title card (though swipe on 1 item does nothing, logic handles it)
   swipePointerId = e.pointerId
   swipeStartX = e.clientX
   swipeStartY = e.clientY
@@ -822,20 +959,21 @@ const onPhonePointerUp = (e) => {
   const dx = swipeLastX - swipeStartX
   const threshold = 50
   if (swipeLock === 'x' && Math.abs(dx) >= threshold) {
-    const len = analysisStore.imageUrls.length
-    if (len > 0) {
+    const total = (analysisStore.imageUrls?.length || 0) + 1
+    if (total > 1) {
       // dx < 0 向左滑：下一张；dx > 0 向右滑：上一张
       const next = dx < 0
-        ? (currentImageIndex.value + 1) % len
-        : (currentImageIndex.value - 1 + len) % len
+        ? (currentDisplayIndex.value + 1) % total
+        : (currentDisplayIndex.value - 1 + total) % total
       
-      // 预加载目标图片（如果还没加载）
-      const nextUrl = analysisStore.imageUrls[next]
-      if (nextUrl && !preloadedImages.value.has(nextUrl)) {
-        preloadImages([nextUrl]).catch(err => console.warn('[HomeView] 手势切换预加载失败:', err))
+      if (next > 0) {
+         const nextUrl = analysisStore.imageUrls[next - 1]
+         if (nextUrl && !preloadedImages.value.has(nextUrl)) {
+           preloadImages([nextUrl]).catch(err => console.warn('[HomeView] 手势切换预加载失败:', err))
+         }
       }
       
-      currentImageIndex.value = next
+      currentDisplayIndex.value = next
     }
   }
 
@@ -1032,15 +1170,13 @@ const preloadImages = async (urls) => {
 }
 
 // 监听图片列表变化：新一批图片到达时从第一张开始展示并预加载
+// 监听图片列表变化：新一批图片到达时，保持当前显示（如果是Title）或者切到第一张AI？
+// 需求：AI生图完成之后，题图依旧作为第一张图片，然后AI生图的图片排列在后面
+// 所以默认 currentDisplayIndex = 0 (Title Card) 是对的，无需改变
 watch(() => analysisStore.imageUrls.length, async (newLen, oldLen) => {
-  if (newLen > 0) {
-    currentImageIndex.value = 0
-    imageLoading.value = true
-    // 如果图片列表更新，清空旧的预加载缓存并重新预加载
-    if (newLen !== oldLen) {
-      preloadedImages.value.clear()
-      await preloadImages(analysisStore.imageUrls)
-    }
+  if (newLen > 0 && newLen !== oldLen) {
+    // 图片更新了，预加载一下
+    await preloadImages(analysisStore.imageUrls)
   }
 })
 
@@ -1067,37 +1203,56 @@ const copyToClipboard = async () => {
 }
 
 const exportAllImages = async () => {
+  const originalIndex = currentDisplayIndex.value
+  isExportingImages.value = true
+
   try {
-    if (!(analysisStore.imageUrls && analysisStore.imageUrls.length > 0)) {
-      alert('暂无可导出的图片')
-      return
+    // 1. Export Title Card using Canvas API (no DOM screenshot)
+    try {
+      const titleCardDataUrl = await generateTitleCardImage({
+        title: xhsPreview.value.title,
+        emoji: analysisStore.titleEmoji,
+        theme: analysisStore.titleTheme
+      })
+      // Convert data URL to blob for download
+      const response = await fetch(titleCardDataUrl)
+      const titleBlob = await response.blob()
+      const titleUrl = URL.createObjectURL(titleBlob)
+      const a = document.createElement('a')
+      a.href = titleUrl
+      a.download = 'xhs_title_card.png'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(titleUrl)
+      console.log('[Export] Title Card generated via Canvas API')
+    } catch (e) {
+      console.error('Title card export failed:', e)
     }
 
-    isExportingImages.value = true
-
-    for (let i = 0; i < analysisStore.imageUrls.length; i += 1) {
-      const url = analysisStore.imageUrls[i]
-      try {
-        const res = await fetch(url)
-        if (!res.ok) {
-          throw new Error(`下载失败: ${res.status}`)
+    // 2. Export AI Images
+    if (analysisStore.imageUrls && analysisStore.imageUrls.length > 0) {
+        for (let i = 0; i < analysisStore.imageUrls.length; i += 1) {
+          const url = analysisStore.imageUrls[i]
+          try {
+            const res = await fetch(url)
+            if (!res.ok) throw new Error(`下载失败: ${res.status}`)
+            const blob = await res.blob()
+            const downloadUrl = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = downloadUrl
+            a.download = `xhs_ai_image_${i + 1}.jpg`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(downloadUrl)
+          } catch (err) {
+            console.error('[HomeView] 导出AI图片失败:', err)
+          }
         }
-        const blob = await res.blob()
-        const downloadUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = downloadUrl
-        a.download = `xhs_image_${i + 1}.jpg`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(downloadUrl)
-      } catch (err) {
-        console.error('[HomeView] 导出图片失败:', err)
-        alert(`导出图片失败: ${err.message || err}`)
-        break
-      }
     }
   } finally {
+    currentDisplayIndex.value = originalIndex
     isExportingImages.value = false
   }
 }
@@ -1136,8 +1291,8 @@ const publishToXhs = async () => {
   if (!analysisStore.finalCopy.title || !analysisStore.finalCopy.body) return
   
   // 检查是否有关联图片
-  const images = analysisStore.imageUrls || []
-  if (images.length === 0) {
+  const aiImages = analysisStore.imageUrls || []
+  if (aiImages.length === 0) {
     alert('发布失败：至少需要一张配图')
     return
   }
@@ -1145,11 +1300,71 @@ const publishToXhs = async () => {
   if (!confirm('确定要根据当前标题、正文和配图发布到小红书吗？')) return
 
   isPublishing.value = true
+  const originalIndex = currentDisplayIndex.value
+  
   try {
+    // Step 1: Generate Title Card using Canvas API (no DOM screenshot)
+    let titleCardDataUrl = null
+    
+    try {
+      titleCardDataUrl = await generateTitleCardImage({
+        title: xhsPreview.value.title,
+        emoji: analysisStore.titleEmoji,
+        theme: analysisStore.titleTheme
+      })
+      console.log('[Publish] Title Card generated successfully via Canvas API')
+    } catch (e) {
+      console.error('[Publish] Title Card generation failed:', e)
+    }
+    
+    // Step 2: Upload Title Card to get a URL (if captured)
+    let allImages = [...aiImages]
+    if (titleCardDataUrl) {
+      try {
+        // Convert Base64 to File
+        const blob = await (await fetch(titleCardDataUrl)).blob()
+        const file = new File([blob], 'title_card.png', { type: 'image/png' })
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        // Upload to our backend (assuming an upload endpoint exists or we send Base64 directly)
+        // For now, we'll try to send the dataUrl directly and let the backend handle it
+        // If the MCP supports data URLs or local files, this might work
+        // Otherwise, we need a dedicated upload endpoint
+        
+        // Prepend the data URL (some MCP implementations might support it)
+        allImages = [titleCardDataUrl, ...aiImages]
+        console.log('[Publish] Title Card prepended to images list')
+      } catch (e) {
+        console.error('[Publish] Failed to process Title Card for upload:', e)
+      }
+    }
+    
+    // Extract hashtags from body and pass them separately
+    // Hashtags are typically at the end of the content in format: #话题 #话题2
+    const body = analysisStore.finalCopy.body || ''
+    const hashtagRegex = /#([^\s#]+)/g
+    const matches = [...body.matchAll(hashtagRegex)]
+    const tags = matches.map(m => m[1]) // Extract tag text without #
+    
+    // Remove hashtags from content (they will be added by MCP via browser automation)
+    // Find the last paragraph that contains only hashtags and remove it
+    let contentWithoutTags = body
+    const lines = body.split('\n')
+    const lastLine = lines[lines.length - 1]?.trim() || ''
+    if (lastLine.match(/^(#[^\s#]+\s*)+$/)) {
+      // Last line is only hashtags, remove it
+      contentWithoutTags = lines.slice(0, -1).join('\n').trim()
+    }
+    
+    console.log('[Publish] Extracted tags:', tags)
+    console.log('[Publish] Content (hashtags removed):', contentWithoutTags.substring(0, 100) + '...')
+    
     const res = await api.publishToXhs({
       title: analysisStore.finalCopy.title,
-      content: analysisStore.finalCopy.body,
-      images: images
+      content: contentWithoutTags,
+      images: allImages,
+      tags: tags.length > 0 ? tags : undefined
     })
 
     if (res.success) {
@@ -1161,6 +1376,7 @@ const publishToXhs = async () => {
     console.error('[HomeView] Publish to XHS failed', e)
     alert(`发布请求出错: ${e.message || e}`)
   } finally {
+    currentDisplayIndex.value = originalIndex
     isPublishing.value = false
   }
 }

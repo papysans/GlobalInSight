@@ -207,6 +207,7 @@ class XhsPublishRequest(BaseModel):
     title: str
     content: str
     images: List[str] = []  # 图片列表（本地路径或 HTTP URL）
+    tags: Optional[List[str]] = None  # 话题标签（不含#前缀）
 
 
 class XhsPublishResponse(BaseModel):
