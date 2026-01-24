@@ -82,7 +82,9 @@ class ImageGeneratorService:
         if self.visual_service is None:
             return cfg
         if cfg.get("access_key") and cfg.get("secret_key"):
-            self.visual_service.set_ak(cfg["access_key"])
+            ak = cfg["access_key"]
+            print(f"[IMAGE] Debug: Using Volcengine AK: {ak[:6]}******{ak[-4:] if len(ak)>10 else ''}")
+            self.visual_service.set_ak(ak)
             self.visual_service.set_sk(cfg["secret_key"])
         return cfg
         

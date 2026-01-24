@@ -34,6 +34,17 @@
                 <component :is="isLoading ? Square : Sparkles" class="w-4 h-4" />
                 {{ isLoading ? '停止分析' : '启动分析' }}
               </button>
+              
+               <!-- Debug/Preview Button -->
+               <!-- Debug/Preview Button (Hidden for production but kept for dev) -->
+               <!-- <button
+                @click="debugPreviewTheme"
+                class="ml-2 px-3 py-2 text-slate-500 hover:text-blue-600 bg-white border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-xs flex items-center gap-1 shadow-sm whitespace-nowrap"
+                title="调试：随机生成标题卡样式"
+              >
+                <span>🎨</span>
+                <span>换样式</span>
+              </button> -->
             </div>
           </div>
 
@@ -250,11 +261,7 @@
                 <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
                   <!-- 图片区域：位于文案上方 -->
                   <div 
-                    ref="phoneContentRef"
-                    :class="[
-                      'relative overflow-hidden flex-shrink-0 transition-colors duration-500 aspect-[3/4]',
-                      currentDisplayIndex === 0 ? dynamicTitleStyle.bg : 'bg-slate-100'
-                    ]"
+                    class="relative overflow-hidden flex-shrink-0 transition-colors duration-500 aspect-[3/4] bg-slate-100"
                   >
                     <!-- 优先显示生成的 AI 图片（固定容器比例 + 图片铺满，消除布局抖动） -->
                     <div
@@ -267,17 +274,19 @@
                     >
                       <transition name="image-fade" mode="out-in">
                         <!-- Case 1: Title Card (Index 0) -->
-                        <div v-if="currentDisplayIndex === 0" key="title-card" class="absolute inset-0 flex flex-col items-center justify-center opacity-100 transition-opacity duration-700 p-4 text-center">
-                            <div class="text-6xl mb-4 drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
-                              {{ analysisStore.titleEmoji || '🤔' }}
-                            </div>
-                            <h2 :class="[
-                              'text-xl font-black bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 border border-slate-100',
-                              dynamicTitleStyle.textColor
-                            ]">
-                              {{ xhsPreview.title ? xhsPreview.title.substring(0, 15) : '标题生成中...' }}
-                            </h2>
-                        </div>
+                        <!-- Case 1: Title Card (Index 0) -->
+                        <!-- Case 1: Title Card (Index 0) -->
+                        <XiaohongshuCard 
+                            v-if="currentDisplayIndex === 0" 
+                            key="title-card"
+                            ref="xiaohongshuCardRef"
+                            :title="xhsPreview.title"
+                            :emoji="analysisStore.titleEmoji"
+                            :theme="analysisStore.titleTheme"
+                            :emoji-pos="emojiPosition"
+                            @emoji-click="randomizeEmojiPosition"
+                            class="absolute inset-0"
+                        />
 
                         <!-- Case 2: AI Images (Index > 0) -->
                         <img
@@ -451,6 +460,7 @@ import { useWorkflowStore } from '../stores/workflow'
 import { api } from '../api'
 import MarkdownIt from 'markdown-it'
 import html2canvas from 'html2canvas'
+import XiaohongshuCard from '../components/XiaohongshuCard.vue'
 
 const md = new MarkdownIt()
 const analysisStore = useAnalysisStore()
@@ -462,6 +472,21 @@ const { logs: storeLogs } = storeToRefs(analysisStore)
 const { status: workflowStatus } = storeToRefs(workflowStore)
 
 const topic = ref('')
+const xiaohongshuCardRef = ref(null)
+
+const generateTitleCardImage = async () => {
+  // Ensure component is mounted
+  if (currentDisplayIndex.value !== 0) {
+    currentDisplayIndex.value = 0
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  
+  if (xiaohongshuCardRef.value) {
+    return await xiaohongshuCardRef.value.generateImage()
+  }
+  throw new Error('XiaohongshuCard component not ready')
+}
 
 // 从热榜一键推演的缓存填充搜索框
 const hydrateHotTopicDraft = () => {
@@ -521,9 +546,8 @@ const trendingLoading = ref(false)
 const hotItemsAll = ref([])
 const hotWindowIndex = ref(0)
 const HOT_WINDOW_SIZE = 3
-const currentPhoneStyleIndex = ref(0)
 const currentDisplayIndex = ref(0) // 0: Title Card, 1+: AI Images
-const phoneContentRef = ref(null) // 用于html2canvas截图的DOM引用
+const emojiPosition = ref('bottom-right') // top-left, top-right, bottom-left, bottom-right
 const maxStepIndex = ref(-1)
 const maxProgress = ref(0)
 const preloadedImages = ref(new Set()) // 已预加载的图片URL集合
@@ -560,148 +584,15 @@ watch(() => workflowStatus.value.current_step, (newStep) => {
   }
 })
 
-const phoneStyles = [
-  { bg: 'bg-gradient-to-br from-indigo-50 to-pink-50', icon: '🤔', textColor: 'text-slate-800' },
-  { bg: 'bg-slate-900', icon: '😱', textColor: 'text-white' },
-  { bg: 'bg-red-50', icon: '🔥', textColor: 'text-red-900' },
-  { bg: 'bg-emerald-50', icon: '🥗', textColor: 'text-emerald-900' }
-]
 
-// Dynamic theme styles based on LLM output
-const themeStyles = {
-  warm: { bg: 'bg-gradient-to-br from-orange-50 to-amber-100', textColor: 'text-amber-900' },
-  cool: { bg: 'bg-gradient-to-br from-indigo-50 to-cyan-100', textColor: 'text-slate-800' },
-  alert: { bg: 'bg-gradient-to-br from-red-100 to-rose-200', textColor: 'text-red-900' },
-  dark: { bg: 'bg-gradient-to-br from-slate-800 to-slate-900', textColor: 'text-white' }
-}
 
-// Computed dynamic style for Title Card
-const dynamicTitleStyle = computed(() => {
-  const theme = analysisStore.titleTheme || 'cool'
-  return themeStyles[theme] || themeStyles.cool
-})
+// Title Card Logic delegated to XiaohongshuCard component
 
-// Canvas color mapping (Tailwind colors -> hex)
-const themeColorMap = {
-  warm: {
-    gradientStart: '#fff7ed', // orange-50
-    gradientEnd: '#fef3c7',   // amber-100
-    textColor: '#78350f'      // amber-900
-  },
-  cool: {
-    gradientStart: '#eef2ff', // indigo-50
-    gradientEnd: '#cffafe',   // cyan-100
-    textColor: '#1e293b'      // slate-800
-  },
-  alert: {
-    gradientStart: '#fee2e2', // red-100
-    gradientEnd: '#fecdd3',   // rose-200
-    textColor: '#7f1d1d'      // red-900
-  },
-  dark: {
-    gradientStart: '#1e293b', // slate-800
-    gradientEnd: '#0f172a',   // slate-900
-    textColor: '#ffffff'      // white
-  }
-}
+// Title Card Customization Logic (Moved minimal logic, core logic in component)
+// emojiPosition ref is kept for parent control if needed, but component handles its own display
+// Actually we need emojiPosition state here because it's passed to component
+// And randomizeEmojiPosition is used by the component event
 
-/**
- * Generate Title Card image using Canvas API (no DOM screenshot)
- * @param {Object} options - { title, emoji, theme }
- * @returns {Promise<string>} - Base64 data URL of the image
- */
-const generateTitleCardImage = async ({ title, emoji, theme }) => {
-  const canvas = document.createElement('canvas')
-  const WIDTH = 1080   // 小红书推荐宽度
-  const HEIGHT = 1440  // 3:4 比例
-  canvas.width = WIDTH
-  canvas.height = HEIGHT
-  const ctx = canvas.getContext('2d')
-  
-  // Get theme colors
-  const colors = themeColorMap[theme] || themeColorMap.cool
-  
-  // 1. Draw gradient background (bottom-right direction)
-  const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
-  gradient.addColorStop(0, colors.gradientStart)
-  gradient.addColorStop(1, colors.gradientEnd)
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, WIDTH, HEIGHT)
-  
-  // 2. Draw emoji (centered, large)
-  const emojiSize = 200
-  ctx.font = `${emojiSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(emoji || '🤔', WIDTH / 2, HEIGHT / 2 - 80)
-  
-  // 3. Draw title card background (rounded rect with blur effect simulation)
-  const titleText = title || '标题生成中...'
-  const padding = { x: 48, y: 24 }
-  const maxTitleWidth = WIDTH - 120 // Max width with margins
-  
-  // Dynamic font sizing to fit long titles
-  let fontSize = 56
-  ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
-  let textMetrics = ctx.measureText(titleText)
-  
-  // Reduce font size if title is too wide
-  while (textMetrics.width > maxTitleWidth && fontSize > 28) {
-    fontSize -= 4
-    ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
-    textMetrics = ctx.measureText(titleText)
-  }
-  
-  const bgWidth = Math.min(textMetrics.width + padding.x * 2, maxTitleWidth + padding.x * 2)
-  const bgHeight = fontSize + 24 + padding.y * 2
-  const bgX = (WIDTH - bgWidth) / 2
-  const bgY = HEIGHT / 2 + 60
-  
-  // Draw rounded rectangle background (semi-transparent white)
-  ctx.save()
-  ctx.translate(WIDTH / 2, bgY + bgHeight / 2)
-  ctx.rotate(-2 * Math.PI / 180) // -2 degree rotation
-  ctx.translate(-WIDTH / 2, -(bgY + bgHeight / 2))
-  
-  // Shadow
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
-  ctx.shadowBlur = 20
-  ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = 8
-  
-  // Background with rounded corners
-  const radius = 24
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
-  ctx.beginPath()
-  ctx.moveTo(bgX + radius, bgY)
-  ctx.lineTo(bgX + bgWidth - radius, bgY)
-  ctx.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + radius)
-  ctx.lineTo(bgX + bgWidth, bgY + bgHeight - radius)
-  ctx.quadraticCurveTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - radius, bgY + bgHeight)
-  ctx.lineTo(bgX + radius, bgY + bgHeight)
-  ctx.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - radius)
-  ctx.lineTo(bgX, bgY + radius)
-  ctx.quadraticCurveTo(bgX, bgY, bgX + radius, bgY)
-  ctx.closePath()
-  ctx.fill()
-  
-  // Border
-  ctx.shadowColor = 'transparent'
-  ctx.strokeStyle = 'rgba(241, 245, 249, 1)' // slate-100
-  ctx.lineWidth = 2
-  ctx.stroke()
-  
-  // 4. Draw title text
-  ctx.fillStyle = colors.textColor
-  ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(titleText, WIDTH / 2, bgY + bgHeight / 2)
-  
-  ctx.restore()
-  
-  return canvas.toDataURL('image/png')
-}
 
 // 工作流步骤配置
 const workflowSteps = [
@@ -1111,6 +1002,15 @@ watch(storeLogs, (newLogs, oldLogs) => {
             console.log('[HomeView] 📋 预览内容（无格式标记）长度:', content.length)
           }
         }
+
+        
+        // 检测额度耗尽错误 (50400 Access Denied)
+        if (log.step_content && (log.step_content.includes('"code":50400') || log.step_content.includes('Access Denied'))) {
+           // 使用 setTimeout 避免阻塞当前渲染循环
+           setTimeout(() => {
+             alert('⚠️ 警告：火山引擎（即梦）绘图服务额度已耗尽或密钥无效！\n\n请检查 user_settings.json 中的密钥配置，或登录火山引擎控制台查看资源包余量。');
+           }, 500);
+        }
       })
     } else {
       console.log('[HomeView] ⚠️ 没有新日志需要处理')
@@ -1118,7 +1018,7 @@ watch(storeLogs, (newLogs, oldLogs) => {
   } else {
     console.log('[HomeView] ⚠️ newLogs为空或长度为0')
   }
-}, { deep: true, immediate: false })
+}, { deep: true, immediate: true })
 
 // 监听最终文案变化
 watch(() => analysisStore.finalCopy, (newCopy) => {
@@ -1139,7 +1039,7 @@ watch(() => analysisStore.finalCopy, (newCopy) => {
       console.log('[HomeView] 从finalCopy设置预览内容，长度:', newCopy.body.length)
     }
   }
-}, { deep: true })
+}, { deep: true, immediate: true })
 
 // 图片预加载函数
 const preloadImages = async (urls) => {
@@ -1212,7 +1112,8 @@ const exportAllImages = async () => {
       const titleCardDataUrl = await generateTitleCardImage({
         title: xhsPreview.value.title,
         emoji: analysisStore.titleEmoji,
-        theme: analysisStore.titleTheme
+        theme: analysisStore.titleTheme,
+        emojiPos: emojiPosition.value
       })
       // Convert data URL to blob for download
       const response = await fetch(titleCardDataUrl)
@@ -1287,6 +1188,25 @@ const checkXhsStatus = async () => {
   }
 }
 
+const debugPreviewTheme = () => {
+    // 1. Set Title
+    xhsPreview.value.title = topic.value || '地球引力消失7秒？NASA连夜辟谣🚀'
+    
+    // 2. Random Emoji
+    const emojis = ['🤔', '🚀', '💡', '🔥', '✨', '🎉', '🤖', '👀', '🌈', '🎨']
+    analysisStore.titleEmoji = emojis[Math.floor(Math.random() * emojis.length)]
+    
+    // 3. Random Theme
+    const themes = ['warm', 'cool', 'alert', 'dark']
+    analysisStore.titleTheme = themes[Math.floor(Math.random() * themes.length)]
+    
+    // 4. Random Position
+    randomizeEmojiPosition()
+    
+    // 5. Switch to Title Card View
+    currentDisplayIndex.value = 0
+}
+
 const publishToXhs = async () => {
   if (!analysisStore.finalCopy.title || !analysisStore.finalCopy.body) return
   
@@ -1310,7 +1230,8 @@ const publishToXhs = async () => {
       titleCardDataUrl = await generateTitleCardImage({
         title: xhsPreview.value.title,
         emoji: analysisStore.titleEmoji,
-        theme: analysisStore.titleTheme
+        theme: analysisStore.titleTheme,
+        emojiPos: emojiPosition.value
       })
       console.log('[Publish] Title Card generated successfully via Canvas API')
     } catch (e) {
