@@ -375,11 +375,6 @@ async def get_user_settings():
 @router.put("/user-settings", response_model=UserSettingsResponse)
 async def put_user_settings(request: UserSettingsUpdateRequest):
     """更新前端可写入的用户设置（部分更新）"""
-    print(f"[DEBUG] Received user-settings update request")
-    print(f"[DEBUG] llm_apis: {request.llm_apis}")
-    print(f"[DEBUG] agent_llm_overrides: {request.agent_llm_overrides}")
-    print(f"[DEBUG] volcengine: {request.volcengine}")
-    
     # 验证 llm_apis 中的模型配置
     if request.llm_apis is not None:
         for api in request.llm_apis:
