@@ -23,6 +23,8 @@ yarn-error.log
 # IDE
 .vscode/
 .idea/
+.kiro/
+.gemini/
 
 # OS
 .DS_Store

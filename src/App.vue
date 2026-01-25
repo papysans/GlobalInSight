@@ -36,6 +36,12 @@
           </div>
 
           <div class="flex items-center gap-3">
+            <button @click="switchTab('test')"
+              class="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-colors flex items-center gap-1"
+              title="测试编辑器">
+              <TestTube class="w-5 h-5" />
+              <span class="text-xs font-bold hidden sm:inline">测试</span>
+            </button>
             <button @click="switchTab('settings')"
               class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex items-center gap-1"
               title="设置">
@@ -66,13 +72,16 @@
 
       <!-- Settings View: 设置 -->
       <SettingsView v-if="currentTab === 'settings'" @api-updated="handleApiUpdated" />
+
+      <!-- Test View: 编辑器测试 -->
+      <EditorTestView v-if="currentTab === 'test'" />
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Waves, Zap, PieChart, Network, Flag, Settings, Flame } from 'lucide-vue-next'
+import { Waves, Zap, PieChart, Network, Flag, Settings, Flame, TestTube } from 'lucide-vue-next'
 import logo from './logo/logo-light.png'
 import HomeView from './views/HomeView.vue'
 import HotView from './views/HotView.vue'
@@ -80,6 +89,7 @@ import DataView from './views/DataView.vue'
 import ArchView from './views/ArchView.vue'
 import VisionView from './views/VisionView.vue'
 import SettingsView from './views/SettingsView.vue'
+import EditorTestView from './views/EditorTestView.vue'
 import { useConfigStore } from './stores/config'
 
 const currentTab = ref('home')

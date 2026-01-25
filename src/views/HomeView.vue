@@ -394,6 +394,12 @@
             <textarea :value="finalCopy" readonly
               class="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-mono resize-none focus:outline-none focus:border-blue-500 transition-colors"
               placeholder="等待辩论结束后，在此生成可直接发布的文案..."></textarea>
+            <button @click="analysisStore.startEditing"
+              :disabled="!finalCopy || finalCopy.length === 0"
+              class="absolute top-3 right-64 px-3 py-1.5 bg-blue-600 border border-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Edit class="w-3 h-3" />
+              编辑
+            </button>
             <button @click="exportAllImages"
               :disabled="isExportingImages || !(analysisStore.imageUrls && analysisStore.imageUrls.length)"
               class="absolute top-3 right-28 px-3 py-1.5 bg-blue-600 border border-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -405,6 +411,9 @@
               <Copy class="w-3 h-3" /> 复制全文
             </button>
           </div>
+
+          <!-- 编辑面板 -->
+          <CopywritingEditor />
 
           <!-- 底部栏：状态指示 + 发布按钮 -->
           <div class="mt-2 flex items-center justify-between px-1">
@@ -452,15 +461,15 @@ import {
   Smartphone, Wifi, Image as ImageIcon, RefreshCcw, Heart, Star, MessageCircle, PenTool,
   ChevronLeft, Share2, AlertTriangle, Download, Upload, Check, XCircle,
   Loader2, Copy, Shield, ThumbsUp, ThumbsDown, Glasses, Activity,
-  Database, FileText, Brain, MessageSquare, PenLine, CheckCircle2, Circle, Loader
+  Database, FileText, Brain, MessageSquare, PenLine, CheckCircle2, Circle, Loader, Edit
 } from 'lucide-vue-next'
 import { useAnalysisStore } from '../stores/analysis'
 import { useConfigStore } from '../stores/config'
 import { useWorkflowStore } from '../stores/workflow'
 import { api } from '../api'
 import MarkdownIt from 'markdown-it'
-import html2canvas from 'html2canvas'
 import XiaohongshuCard from '../components/XiaohongshuCard.vue'
+import CopywritingEditor from '../components/CopywritingEditor.vue'
 
 const md = new MarkdownIt()
 const analysisStore = useAnalysisStore()
@@ -468,7 +477,7 @@ const configStore = useConfigStore()
 const workflowStore = useWorkflowStore()
 
 // 使用 storeToRefs 确保响应式
-const { logs: storeLogs } = storeToRefs(analysisStore)
+const { logs: storeLogs, isEditing, editableContent } = storeToRefs(analysisStore)
 const { status: workflowStatus } = storeToRefs(workflowStore)
 
 const topic = ref('')
@@ -1059,6 +1068,18 @@ watch(() => analysisStore.finalCopy, (newCopy) => {
   }
 }, { deep: true, immediate: true })
 
+// 监听编辑内容变化，实时同步到预览
+watch(() => editableContent.value, (newContent) => {
+  if (isEditing.value && newContent) {
+    xhsPreview.value.title = newContent.title || ''
+    xhsPreview.value.content = newContent.body || ''
+    console.log('[HomeView] 编辑内容同步到预览:', {
+      title: newContent.title,
+      body_length: (newContent.body || '').length
+    })
+  }
+}, { deep: true })
+
 // 图片预加载函数
 const preloadImages = async (urls) => {
   if (!urls || urls.length === 0) return
@@ -1226,11 +1247,20 @@ const debugPreviewTheme = () => {
 }
 
 const publishToXhs = async () => {
-  if (!analysisStore.finalCopy.title || !analysisStore.finalCopy.body) return
+  // 使用编辑后的内容
+  const titleToPublish = editableContent.value.title || analysisStore.finalCopy.title
+  const bodyToPublish = editableContent.value.body || analysisStore.finalCopy.body
   
-  // 检查是否有关联图片
-  const aiImages = analysisStore.imageUrls || []
-  if (aiImages.length === 0) {
+  if (!titleToPublish || !bodyToPublish) return
+  
+  // 获取选中的图片（按用户排序）
+  const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+  const selectedImages = editableContent.value.imageOrder
+    .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
+    .map(idx => allImages[idx])
+    .filter(img => img !== null) // 过滤掉标题卡（暂时）
+  
+  if (selectedImages.length === 0) {
     alert('发布失败：至少需要一张配图')
     return
   }
@@ -1241,68 +1271,54 @@ const publishToXhs = async () => {
   const originalIndex = currentDisplayIndex.value
   
   try {
-    // Step 1: Generate Title Card using Canvas API (no DOM screenshot)
+    // Step 1: Generate Title Card using Canvas API (if selected)
     let titleCardDataUrl = null
+    const titleCardSelected = editableContent.value.selectedImageIndices.includes(0)
     
-    try {
-      titleCardDataUrl = await generateTitleCardImage({
-        title: xhsPreview.value.title,
-        emoji: analysisStore.titleEmoji,
-        theme: analysisStore.titleTheme,
-        emojiPos: emojiPosition.value
-      })
-      console.log('[Publish] Title Card generated successfully via Canvas API')
-    } catch (e) {
-      console.error('[Publish] Title Card generation failed:', e)
-    }
-    
-    // Step 2: Upload Title Card to get a URL (if captured)
-    let allImages = [...aiImages]
-    if (titleCardDataUrl) {
+    if (titleCardSelected) {
       try {
-        // Convert Base64 to File
-        const blob = await (await fetch(titleCardDataUrl)).blob()
-        const file = new File([blob], 'title_card.png', { type: 'image/png' })
-        const formData = new FormData()
-        formData.append('file', file)
-        
-        // Upload to our backend (assuming an upload endpoint exists or we send Base64 directly)
-        // For now, we'll try to send the dataUrl directly and let the backend handle it
-        // If the MCP supports data URLs or local files, this might work
-        // Otherwise, we need a dedicated upload endpoint
-        
-        // Prepend the data URL (some MCP implementations might support it)
-        allImages = [titleCardDataUrl, ...aiImages]
-        console.log('[Publish] Title Card prepended to images list')
+        titleCardDataUrl = await generateTitleCardImage({
+          title: titleToPublish,
+          emoji: analysisStore.titleEmoji,
+          theme: analysisStore.titleTheme,
+          emojiPos: emojiPosition.value
+        })
+        console.log('[Publish] Title Card generated successfully via Canvas API')
       } catch (e) {
-        console.error('[Publish] Failed to process Title Card for upload:', e)
+        console.error('[Publish] Title Card generation failed:', e)
       }
     }
     
+    // Step 2: Build final images list
+    let allImagesToPublish = [...selectedImages]
+    if (titleCardDataUrl) {
+      // Prepend title card if it was selected
+      allImagesToPublish = [titleCardDataUrl, ...selectedImages]
+      console.log('[Publish] Title Card prepended to images list')
+    }
+    
     // Extract hashtags from body and pass them separately
-    // Hashtags are typically at the end of the content in format: #话题 #话题2
-    const body = analysisStore.finalCopy.body || ''
+    const body = bodyToPublish || ''
     const hashtagRegex = /#([^\s#]+)/g
     const matches = [...body.matchAll(hashtagRegex)]
-    const tags = matches.map(m => m[1]) // Extract tag text without #
+    const tags = matches.map(m => m[1])
     
-    // Remove hashtags from content (they will be added by MCP via browser automation)
-    // Find the last paragraph that contains only hashtags and remove it
+    // Remove hashtags from content
     let contentWithoutTags = body
     const lines = body.split('\n')
     const lastLine = lines[lines.length - 1]?.trim() || ''
     if (lastLine.match(/^(#[^\s#]+\s*)+$/)) {
-      // Last line is only hashtags, remove it
       contentWithoutTags = lines.slice(0, -1).join('\n').trim()
     }
     
     console.log('[Publish] Extracted tags:', tags)
     console.log('[Publish] Content (hashtags removed):', contentWithoutTags.substring(0, 100) + '...')
+    console.log('[Publish] Images count:', allImagesToPublish.length)
     
     const res = await api.publishToXhs({
-      title: analysisStore.finalCopy.title,
+      title: titleToPublish,
       content: contentWithoutTags,
-      images: allImages,
+      images: allImagesToPublish,
       tags: tags.length > 0 ? tags : undefined
     })
 

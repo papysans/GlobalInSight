@@ -52,6 +52,16 @@ export const useAnalysisStore = defineStore("analysis", {
             imageUrls: cachedResults?.imageUrls || [], // 生成的配图 URL
             titleEmoji: cachedResults?.titleEmoji || "🤔", // Title Card emoji (default)
             titleTheme: cachedResults?.titleTheme || "cool", // Title Card color theme: warm/cool/alert/dark
+            
+            // 编辑状态
+            isEditing: false,
+            editableContent: {
+                title: cachedResults?.finalCopy?.title || "",
+                body: cachedResults?.finalCopy?.body || "",
+                selectedImageIndices: cachedResults?.selectedImageIndices || [0], // 默认选中标题卡（索引0）
+                imageOrder: cachedResults?.imageOrder || [0], // 默认顺序
+            },
+            originalContent: null, // 用于取消时恢复
         };
     },
 
@@ -95,12 +105,81 @@ export const useAnalysisStore = defineStore("analysis", {
                 imageUrls: this.imageUrls,
                 titleEmoji: this.titleEmoji,
                 titleTheme: this.titleTheme,
+                selectedImageIndices: this.editableContent.selectedImageIndices,
+                imageOrder: this.editableContent.imageOrder,
             };
             try {
                 sessionStorage.setItem("grandchart_analysis_results", JSON.stringify(results));
             } catch (e) {
                 console.error("Failed to save analysis results to sessionStorage:", e);
             }
+        },
+
+        // 编辑相关 actions
+        startEditing() {
+            this.isEditing = true;
+            // 备份原始内容
+            this.originalContent = JSON.parse(JSON.stringify(this.editableContent));
+            console.log('[AnalysisStore] 开始编辑模式');
+        },
+
+        updateEditableContent(field, value) {
+            this.editableContent[field] = value;
+            // 自动保存到 localStorage
+            this.saveEditDraft();
+        },
+
+        saveEditing() {
+            this.isEditing = false;
+            // 更新 finalCopy
+            this.finalCopy = {
+                title: this.editableContent.title,
+                body: this.editableContent.body,
+            };
+            this.saveEditDraft();
+            this.saveResultsToSession();
+            console.log('[AnalysisStore] 编辑已保存');
+        },
+
+        cancelEditing() {
+            this.isEditing = false;
+            // 恢复原始内容
+            if (this.originalContent) {
+                this.editableContent = JSON.parse(JSON.stringify(this.originalContent));
+            }
+            console.log('[AnalysisStore] 编辑已取消');
+        },
+
+        saveEditDraft() {
+            try {
+                localStorage.setItem('xhs_edit_draft', JSON.stringify(this.editableContent));
+            } catch (e) {
+                console.error('Failed to save edit draft:', e);
+            }
+        },
+
+        loadEditDraft() {
+            try {
+                const draft = localStorage.getItem('xhs_edit_draft');
+                if (draft) {
+                    const parsed = JSON.parse(draft);
+                    this.editableContent = parsed;
+                }
+            } catch (e) {
+                console.error('Failed to load edit draft:', e);
+            }
+        },
+
+        // 初始化可编辑内容（当新文案生成时调用）
+        initEditableContent() {
+            const totalImages = this.imageUrls.length + 1; // +1 for title card
+            this.editableContent = {
+                title: this.finalCopy.title,
+                body: this.finalCopy.body,
+                selectedImageIndices: Array.from({ length: totalImages }, (_, i) => i), // 默认全选
+                imageOrder: Array.from({ length: totalImages }, (_, i) => i), // 默认顺序
+            };
+            this.saveEditDraft();
         },
 
         async startAnalysis(payload) {
@@ -249,6 +328,8 @@ export const useAnalysisStore = defineStore("analysis", {
                             title: title,
                             body: body,
                         };
+                        // 初始化可编辑内容
+                        this.initEditableContent();
                         this.saveResultsToSession(); // Persist after Writer output
                     }
 
