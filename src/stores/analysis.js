@@ -392,6 +392,15 @@ export const useAnalysisStore = defineStore("analysis", {
                             data.image_urls
                         );
                         this.imageUrls = data.image_urls;
+                        
+                        // 重新初始化可编辑内容（包含新的图片）
+                        this.initEditableContent();
+                        console.log('[AnalysisStore] ✅ editableContent 已重新初始化（包含AI图片）:', {
+                            selectedImageIndices: this.editableContent.selectedImageIndices,
+                            imageOrder: this.editableContent.imageOrder,
+                            totalImages: this.imageUrls.length + 1
+                        });
+                        
                         this.saveResultsToSession(); // Persist after Image Generator output
                     }
 

@@ -273,11 +273,9 @@
                       @pointercancel="onPhonePointerUp"
                     >
                       <transition name="image-fade" mode="out-in">
-                        <!-- Case 1: Title Card (Index 0) -->
-                        <!-- Case 1: Title Card (Index 0) -->
-                        <!-- Case 1: Title Card (Index 0) -->
+                        <!-- Case 1: Title Card (displayImages[currentDisplayIndex] === null) -->
                         <XiaohongshuCard 
-                            v-if="currentDisplayIndex === 0" 
+                            v-if="displayImages[currentDisplayIndex] === null" 
                             key="title-card"
                             ref="xiaohongshuCardRef"
                             :title="xhsPreview.title"
@@ -288,11 +286,11 @@
                             class="absolute inset-0"
                         />
 
-                        <!-- Case 2: AI Images (Index > 0) -->
+                        <!-- Case 2: AI Images (displayImages[currentDisplayIndex] is a URL) -->
                         <img
                           v-else
                           :key="'img-' + currentDisplayIndex"
-                          :src="analysisStore.imageUrls[currentDisplayIndex - 1]"
+                          :src="displayImages[currentDisplayIndex]"
                           class="absolute inset-0 w-full h-full object-cover block"
                           alt="AI Generated"
                           draggable="false"
@@ -304,35 +302,29 @@
                       </transition>
                       
                       <!-- 加载指示器 -->
-                      <div v-if="imageLoading && currentDisplayIndex > 0" 
+                      <div v-if="imageLoading && displayImages[currentDisplayIndex] !== null" 
                         class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
                         <Loader2 class="w-6 h-6 text-blue-600 animate-spin" />
                       </div>
 
                       <!-- AI 生成提示 (Only for AI Images) -->
-                      <div v-if="currentDisplayIndex > 0"
+                      <div v-if="displayImages[currentDisplayIndex] !== null"
                         class="absolute top-2 left-2 flex items-center gap-1 bg-white/80 text-slate-700 text-[10px] px-2 py-1 rounded-full backdrop-blur-sm border border-slate-100">
                         <AlertTriangle class="w-3 h-3 text-slate-700" />
                         <span>内容可能使用AI技术生成</span>
                       </div>
 
-                      <!-- 多图指示器 (Title Card + AI Images) -->
+                      <!-- 多图指示器 -->
                        <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-                        <!-- Dot for Title Card -->
-                        <div :class="[
+                        <div v-for="(_, i) in displayImages" :key="i" :class="[
                           'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                          currentDisplayIndex === 0 ? 'bg-white scale-125' : 'bg-white/50'
-                        ]"></div>
-                        <!-- Dots for AI Images -->
-                        <div v-for="(_, i) in analysisStore.imageUrls" :key="i" :class="[
-                          'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                          currentDisplayIndex === (i + 1) ? 'bg-white scale-125' : 'bg-white/50'
+                          currentDisplayIndex === i ? 'bg-white scale-125' : 'bg-white/50'
                         ]"></div>
                       </div>
 
                       <div
                         class="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm">
-                        {{ currentDisplayIndex + 1 }} / {{ (analysisStore.imageUrls?.length || 0) + 1 }}
+                        {{ currentDisplayIndex + 1 }} / {{ totalDisplayImages }}
                       </div>
                     </div><!-- End of phone image container -->
                   </div><!-- End of aspect ratio container -->
@@ -484,9 +476,16 @@ const topic = ref('')
 const xiaohongshuCardRef = ref(null)
 
 const generateTitleCardImage = async () => {
+  // Find the index of title card in displayImages (where value is null)
+  const titleCardIndex = displayImages.value.findIndex(img => img === null)
+  
+  if (titleCardIndex === -1) {
+    throw new Error('Title card not found in display images')
+  }
+  
   // Ensure component is mounted
-  if (currentDisplayIndex.value !== 0) {
-    currentDisplayIndex.value = 0
+  if (currentDisplayIndex.value !== titleCardIndex) {
+    currentDisplayIndex.value = titleCardIndex
     await nextTick()
     // Give it a bit more time to mount and render
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -563,6 +562,23 @@ const hotWindowIndex = ref(0)
 const HOT_WINDOW_SIZE = 3
 const currentDisplayIndex = ref(0) // 0: Title Card, 1+: AI Images
 const emojiPosition = ref('bottom-right') // top-left, top-right, bottom-left, bottom-right
+
+// 计算属性：根据编辑状态返回正确的图片列表
+// 如果正在编辑，使用用户选择和排序后的图片；否则使用原始图片
+const displayImages = computed(() => {
+  // 如果正在编辑或已保存编辑，使用编辑后的图片顺序
+  if (analysisStore.isEditing || (editableContent.value.selectedImageIndices.length > 0 && editableContent.value.selectedImageIndices.length < (analysisStore.imageUrls.length + 1))) {
+    const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+    return editableContent.value.imageOrder
+      .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
+      .map(idx => allImages[idx])
+  }
+  // 默认：标题卡 + 所有 AI 图片
+  return [null, ...analysisStore.imageUrls]
+})
+
+// 计算属性：当前显示的图片总数
+const totalDisplayImages = computed(() => displayImages.value.length)
 const maxStepIndex = ref(-1)
 const maxProgress = ref(0)
 const preloadedImages = ref(new Set()) // 已预加载的图片URL集合
@@ -816,15 +832,15 @@ const refreshTrending = async () => {
 }
 
 const switchPhoneImage = () => {
-  const total = (analysisStore.imageUrls?.length || 0) + 1
+  const total = totalDisplayImages.value
   const nextIndex = (currentDisplayIndex.value + 1) % total
   
   if (nextIndex > 0) {
      // Preload if next is an image
-     const nextUrl = analysisStore.imageUrls[nextIndex - 1]
-     if (nextUrl && !preloadedImages.value.has(nextUrl)) {
+     const nextImage = displayImages.value[nextIndex]
+     if (nextImage && !preloadedImages.value.has(nextImage)) {
        imageLoading.value = true
-       preloadImages([nextUrl]).then(() => {
+       preloadImages([nextImage]).then(() => {
           imageLoading.value = false
        }).catch(err => console.warn('[HomeView] 预加载下一张图片失败:', err))
      }
@@ -877,7 +893,7 @@ const onPhonePointerUp = (e) => {
   const dx = swipeLastX - swipeStartX
   const threshold = 50
   if (swipeLock === 'x' && Math.abs(dx) >= threshold) {
-    const total = (analysisStore.imageUrls?.length || 0) + 1
+    const total = totalDisplayImages.value
     if (total > 1) {
       // dx < 0 向左滑：下一张；dx > 0 向右滑：上一张
       const next = dx < 0
@@ -885,9 +901,9 @@ const onPhonePointerUp = (e) => {
         : (currentDisplayIndex.value - 1 + total) % total
       
       if (next > 0) {
-         const nextUrl = analysisStore.imageUrls[next - 1]
-         if (nextUrl && !preloadedImages.value.has(nextUrl)) {
-           preloadImages([nextUrl]).catch(err => console.warn('[HomeView] 手势切换预加载失败:', err))
+         const nextImage = displayImages.value[next]
+         if (nextImage && !preloadedImages.value.has(nextImage)) {
+           preloadImages([nextImage]).catch(err => console.warn('[HomeView] 手势切换预加载失败:', err))
          }
       }
       
@@ -1087,6 +1103,15 @@ watch(() => editableContent.value, (newContent) => {
       title: newContent.title,
       body_length: (newContent.body || '').length
     })
+  }
+}, { deep: true })
+
+// 监听图片选择变化，重置显示索引避免越界
+watch(() => [editableContent.value.selectedImageIndices, editableContent.value.imageOrder], () => {
+  // 如果当前显示的索引超出了新的图片数量，重置到第一张
+  if (currentDisplayIndex.value >= totalDisplayImages.value) {
+    currentDisplayIndex.value = 0
+    console.log('[HomeView] 图片选择变化，重置显示索引到第一张')
   }
 }, { deep: true })
 
