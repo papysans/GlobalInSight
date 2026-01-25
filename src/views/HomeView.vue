@@ -1049,21 +1049,26 @@ watch(storeLogs, (newLogs, oldLogs) => {
 
 // 监听最终文案变化
 watch(() => analysisStore.finalCopy, (newCopy) => {
-  console.log('[HomeView] 最终文案更新:', {
+  console.log('[HomeView] 📱 最终文案更新:', {
     has_title: !!newCopy.title,
     has_body: !!newCopy.body,
+    title: newCopy.title,
     title_length: (newCopy.title || '').length,
-    body_length: (newCopy.body || '').length
+    body_length: (newCopy.body || '').length,
+    body_preview: (newCopy.body || '').substring(0, 100),
+    current_xhsPreview_title: xhsPreview.value.title,
+    current_xhsPreview_content_length: xhsPreview.value.content.length
   })
 
-  if (newCopy && newCopy.body) {
-    if (!xhsPreview.value.title && newCopy.title) {
+  // 🐛 修复：应该始终更新预览，而不是只在为空时更新
+  if (newCopy && (newCopy.title || newCopy.body)) {
+    if (newCopy.title) {
       xhsPreview.value.title = newCopy.title
-      console.log('[HomeView] 从finalCopy设置预览标题:', newCopy.title)
+      console.log('[HomeView] ✅ 更新预览标题:', newCopy.title)
     }
-    if (!xhsPreview.value.content && newCopy.body) {
+    if (newCopy.body) {
       xhsPreview.value.content = newCopy.body
-      console.log('[HomeView] 从finalCopy设置预览内容，长度:', newCopy.body.length)
+      console.log('[HomeView] ✅ 更新预览内容，长度:', newCopy.body.length)
     }
   }
 }, { deep: true, immediate: true })
@@ -1146,51 +1151,74 @@ const exportAllImages = async () => {
   isExportingImages.value = true
 
   try {
-    // 1. Export Title Card using Canvas API (no DOM screenshot)
-    try {
-      const titleCardDataUrl = await generateTitleCardImage({
-        title: xhsPreview.value.title,
-        emoji: analysisStore.titleEmoji,
-        theme: analysisStore.titleTheme,
-        emojiPos: emojiPosition.value
-      })
-      // Convert data URL to blob for download
-      const response = await fetch(titleCardDataUrl)
-      const titleBlob = await response.blob()
-      const titleUrl = URL.createObjectURL(titleBlob)
-      const a = document.createElement('a')
-      a.href = titleUrl
-      a.download = 'xhs_title_card.png'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(titleUrl)
-      console.log('[Export] Title Card generated via Canvas API')
-    } catch (e) {
-      console.error('Title card export failed:', e)
+    // 获取用户编辑后的图片选择和顺序
+    const selectedIndices = editableContent.value.selectedImageIndices || []
+    const imageOrder = editableContent.value.imageOrder || []
+    
+    // 构建所有图片数组（索引0=标题卡，索引1+=AI图片）
+    const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+    
+    // 按用户定义的顺序导出选中的图片
+    const imagesToExport = imageOrder
+      .filter(idx => selectedIndices.includes(idx))
+      .map(idx => ({ index: idx, source: allImages[idx] }))
+    
+    console.log('[Export] 导出图片:', {
+      selectedIndices,
+      imageOrder,
+      imagesToExport: imagesToExport.map(img => ({ index: img.index, hasSource: !!img.source }))
+    })
+    
+    if (imagesToExport.length === 0) {
+      alert('没有选中的图片可导出')
+      return
     }
-
-    // 2. Export AI Images
-    if (analysisStore.imageUrls && analysisStore.imageUrls.length > 0) {
-        for (let i = 0; i < analysisStore.imageUrls.length; i += 1) {
-          const url = analysisStore.imageUrls[i]
-          try {
-            const res = await fetch(url)
-            if (!res.ok) throw new Error(`下载失败: ${res.status}`)
-            const blob = await res.blob()
-            const downloadUrl = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = downloadUrl
-            a.download = `xhs_ai_image_${i + 1}.jpg`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            URL.revokeObjectURL(downloadUrl)
-          } catch (err) {
-            console.error('[HomeView] 导出AI图片失败:', err)
-          }
+    
+    // 导出每张图片
+    for (let i = 0; i < imagesToExport.length; i++) {
+      const { index, source } = imagesToExport[i]
+      
+      try {
+        if (index === 0) {
+          // 导出标题卡（使用 Canvas API）
+          const titleCardDataUrl = await generateTitleCardImage({
+            title: editableContent.value.title || xhsPreview.value.title,
+            emoji: analysisStore.titleEmoji,
+            theme: analysisStore.titleTheme,
+            emojiPos: emojiPosition.value
+          })
+          const response = await fetch(titleCardDataUrl)
+          const titleBlob = await response.blob()
+          const titleUrl = URL.createObjectURL(titleBlob)
+          const a = document.createElement('a')
+          a.href = titleUrl
+          a.download = `xhs_image_${i + 1}_title_card.png`
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          URL.revokeObjectURL(titleUrl)
+          console.log(`[Export] 已导出标题卡 (${i + 1}/${imagesToExport.length})`)
+        } else {
+          // 导出 AI 图片
+          const res = await fetch(source)
+          if (!res.ok) throw new Error(`下载失败: ${res.status}`)
+          const blob = await res.blob()
+          const downloadUrl = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = downloadUrl
+          a.download = `xhs_image_${i + 1}_ai.jpg`
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          URL.revokeObjectURL(downloadUrl)
+          console.log(`[Export] 已导出 AI 图片 (${i + 1}/${imagesToExport.length})`)
         }
+      } catch (err) {
+        console.error(`[Export] 导出图片 ${i + 1} 失败:`, err)
+      }
     }
+    
+    alert(`成功导出 ${imagesToExport.length} 张图片`)
   } finally {
     currentDisplayIndex.value = originalIndex
     isExportingImages.value = false

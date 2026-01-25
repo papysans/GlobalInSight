@@ -296,41 +296,90 @@ export const useAnalysisStore = defineStore("analysis", {
 
                     // Update final copy if writer finished
                     if (data.agent_name === "Writer" && data.step_content) {
-                        // Strip agent prefix "Writer: " if present
+                        console.log('[AnalysisStore] 📝 Writer 输出原始内容:', {
+                            length: data.step_content.length,
+                            preview: data.step_content.substring(0, 200),
+                            hasTITLE: data.step_content.includes("TITLE:"),
+                            hasCONTENT: data.step_content.includes("CONTENT:"),
+                            hasEMOJI: data.step_content.includes("EMOJI:"),
+                            hasTHEME: data.step_content.includes("THEME:")
+                        });
+                        
                         // Strip agent prefix "Writer: " if present (robust regex)
-                        const cleanContent = data.step_content.replace(/(?:^|\n)Writer:\s*/i, '').trim();
-                        const content = cleanContent;
+                        let cleanContent = data.step_content.replace(/(?:^|\n)Writer:\s*/gi, '').trim();
+                        console.log('[AnalysisStore] 🧹 清理后的内容:', {
+                            length: cleanContent.length,
+                            preview: cleanContent.substring(0, 200)
+                        });
+                        
                         let title = "生成文案";
-                        let body = content;
+                        let body = cleanContent;
 
-                        if (content.includes("TITLE:")) {
-                            const parts = content.split("CONTENT:");
-                            const headerPart = parts[0];
-                            title = headerPart.split("EMOJI:")[0].replace("TITLE:", "").trim();
-                            // Double check: remove Writer prefix if it still exists in title
-                            title = title.replace(/^Writer:\s*/i, '').replace(/^TITLE:\s*/i, '').trim();
-                            body = parts[1] ? parts[1].trim() : "";
+                        if (cleanContent.includes("TITLE:")) {
+                            // 解析标题
+                            const titleMatch = cleanContent.match(/TITLE:\s*(.+?)(?=\s*(?:EMOJI:|THEME:|CONTENT:|$))/is);
+                            if (titleMatch && titleMatch[1]) {
+                                title = titleMatch[1].trim();
+                            }
 
-                            // Parse EMOJI if present
-                            const emojiMatch = headerPart.match(/EMOJI:\s*(.+?)(?:\n|THEME:|$)/i);
+                            // 解析 EMOJI
+                            const emojiMatch = cleanContent.match(/EMOJI:\s*(.+?)(?=\s*(?:THEME:|CONTENT:|$))/is);
                             if (emojiMatch && emojiMatch[1]) {
                                 this.titleEmoji = emojiMatch[1].trim();
+                                console.log('[AnalysisStore] 😀 解析到 Emoji:', this.titleEmoji);
                             }
 
-                            // Parse THEME if present
-                            const themeMatch = headerPart.match(/THEME:\s*(warm|cool|alert|dark)/i);
+                            // 解析 THEME
+                            const themeMatch = cleanContent.match(/THEME:\s*(warm|cool|alert|dark)/i);
                             if (themeMatch && themeMatch[1]) {
                                 this.titleTheme = themeMatch[1].toLowerCase();
+                                console.log('[AnalysisStore] 🎨 解析到 Theme:', this.titleTheme);
                             }
+
+                            // 解析正文内容（CONTENT: 之后的所有内容）
+                            const contentMatch = cleanContent.match(/CONTENT:\s*([\s\S]+)$/i);
+                            if (contentMatch && contentMatch[1]) {
+                                body = contentMatch[1].trim();
+                            } else {
+                                // 如果没有 CONTENT: 标记，尝试移除所有元数据标记
+                                body = cleanContent
+                                    .replace(/TITLE:\s*.+?(?=\s*(?:EMOJI:|THEME:|CONTENT:|$))/is, '')
+                                    .replace(/EMOJI:\s*.+?(?=\s*(?:THEME:|CONTENT:|$))/is, '')
+                                    .replace(/THEME:\s*.+?(?=\s*CONTENT:|$)/is, '')
+                                    .trim();
+                            }
+
+                            console.log('[AnalysisStore] 📋 解析结果:', {
+                                title,
+                                bodyLength: body.length,
+                                bodyPreview: body.substring(0, 100)
+                            });
+                        } else {
+                            console.warn('[AnalysisStore] ⚠️ 内容中没有找到 TITLE: 标记，使用原始内容');
                         }
 
                         this.finalCopy = {
                             title: title,
                             body: body,
                         };
+                        
+                        console.log('[AnalysisStore] ✅ finalCopy 已更新:', {
+                            title: this.finalCopy.title,
+                            bodyLength: this.finalCopy.body.length,
+                            bodyPreview: this.finalCopy.body.substring(0, 100)
+                        });
+                        
                         // 初始化可编辑内容
                         this.initEditableContent();
+                        console.log('[AnalysisStore] ✅ editableContent 已初始化:', {
+                            title: this.editableContent.title,
+                            bodyLength: this.editableContent.body.length,
+                            selectedImageIndices: this.editableContent.selectedImageIndices,
+                            imageOrder: this.editableContent.imageOrder
+                        });
+                        
                         this.saveResultsToSession(); // Persist after Writer output
+                        console.log('[AnalysisStore] 💾 已保存到 sessionStorage');
                     }
 
                     // 处理 Image Generator 输出
