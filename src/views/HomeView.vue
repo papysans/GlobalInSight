@@ -928,6 +928,11 @@ const handleStart = async () => {
   xhsPreview.value = { title: '', content: '' }
   maxStepIndex.value = -1
   maxProgress.value = 0
+  
+  // 随机化 emoji 位置
+  randomizeEmojiPosition()
+  console.log('[HomeView] 🎲 随机化 emoji 位置:', emojiPosition.value)
+  
   console.log('[HomeView] 🧹 已清空旧日志和预览数据，debateLogs长度:', debateLogs.value.length)
   console.log('[HomeView] 📊 当前store logs长度:', analysisStore.logs.length)
 
