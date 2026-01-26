@@ -27,22 +27,63 @@
       </div>
 
       <!-- 双卡布局 -->
-      <div class="grid lg:grid-cols-2 gap-6">
-        <!-- 洞察卡 -->
-        <InsightCard
-          v-if="dataUnlocked"
-          :conclusion="insightCardData.conclusion"
-          :coverage="insightCardData.coverage"
-          :key-finding="insightCardData.keyFinding"
-        />
+      <div v-if="dataUnlocked" class="grid lg:grid-cols-2 gap-6">
+        <!-- 左侧列 -->
+        <div class="space-y-6">
+          <!-- 洞察卡 -->
+          <InsightCard
+            :conclusion="insightCardData.conclusion"
+            :coverage="insightCardData.coverage"
+            :key-finding="insightCardData.keyFinding"
+          />
 
-        <!-- 数据可视化卡 -->
-        <div v-if="dataUnlocked" class="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
+          <!-- 关键发现卡片 -->
+          <div v-if="keyFindings.length > 0" class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl shadow-lg p-6 border border-orange-200">
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Sparkles class="w-5 h-5 text-orange-600" />
+              关键发现
+            </h3>
+            <div class="space-y-3">
+              <div v-for="(finding, index) in keyFindings" :key="`finding-${index}`" class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  {{ index + 1 }}
+                </div>
+                <p class="text-sm text-slate-700 leading-relaxed">{{ finding }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 平台热度分布 -->
+          <!-- <div v-if="platformHeatList.length > 0" class="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <BarChart3 class="w-5 h-5 text-blue-600" />
+              平台热度分布
+            </h3>
+            <div class="space-y-3">
+              <div v-for="platform in platformHeatList" :key="`platform-${platform.name}`" class="space-y-1">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="font-medium text-slate-700">{{ platform.name }}</span>
+                  <span class="text-slate-500">{{ platform.value }}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    class="h-full rounded-full transition-all duration-500"
+                    :class="platform.color"
+                    :style="{ width: platform.percentage + '%' }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div> -->
+        </div>
+
+        <!-- 右侧列：数据可视化卡 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
           <!-- Tab 选择器 -->
           <div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
             <button
               v-for="option in vizOptions"
-              :key="option.type"
+              :key="`viz-${option.type}`"
               @click="selectedVizOption = option.type"
               :class="[
                 'px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2',
@@ -199,7 +240,7 @@
             <div class="space-y-3">
               <button
                 v-for="option in availableDataOptions"
-                :key="option.type"
+                :key="`data-${option.type}`"
                 @click="selectDataType(option.type)"
                 :class="[
                   'data-btn w-full text-left px-4 py-3 rounded-xl bg-white text-slate-600 border border-slate-200 font-medium hover:bg-slate-50 transition-colors flex justify-between items-center group shadow-sm',
@@ -229,7 +270,7 @@
             <div class="grid grid-cols-5 gap-1.5">
               <div
                 v-for="theme in themes"
-                :key="theme.name"
+                :key="`theme-${theme.name}`"
                 @click="setTheme(theme.name)"
                 :class="[
                   'theme-btn w-full aspect-square rounded-full border cursor-pointer shadow-sm transition-all',
@@ -338,7 +379,7 @@ import { useAnalysisStore } from '../stores/analysis'
 import { api } from '../api'
 import {
   Lock, LayoutGrid, ChevronRight, Edit3, Palette, Download,
-  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2, Radar, GitBranch
+  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2, Radar, GitBranch, Sparkles
 } from 'lucide-vue-next'
 import { Chart, registerables } from 'chart.js'
 import InsightCard from '../components/InsightCard.vue'
@@ -369,6 +410,58 @@ const insightCardData = computed(() => analysisStore.insightCardData)
 const radarChartData = computed(() => analysisStore.radarChartData)
 const debateTimelineData = computed(() => analysisStore.debateTimelineData)
 const trendChartData = computed(() => analysisStore.trendChartData)
+
+// 关键发现列表
+const keyFindings = computed(() => {
+  const findings = []
+  const insight = analysisStore.insight || ''
+  
+  // 提取关键发现（以"。"分割，取前3条）
+  const sentences = insight.split(/[。！？]/).filter(s => s.trim().length > 10)
+  return sentences.slice(0, 3)
+})
+
+// 平台热度列表
+const platformHeatList = computed(() => {
+  const platforms = analysisStore.selectedPlatforms || []
+  if (platforms.length === 0) return []
+  
+  const colors = [
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-orange-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-red-500'
+  ]
+  
+  const platformNames = {
+    wb: '微博',
+    bili: 'B站',
+    xhs: '小红书',
+    dy: '抖音',
+    ks: '快手',
+    tieba: '贴吧',
+    zhihu: '知乎',
+    hn: 'Hacker News'
+  }
+  
+  // 生成热度数据（基于平台名称的伪随机值）
+  const heatData = platforms.map((p, index) => {
+    const name = platformNames[p] || p
+    const baseValue = 60 + (name.charCodeAt(0) % 35)
+    return {
+      name,
+      value: baseValue,
+      percentage: baseValue,
+      color: colors[index % colors.length]
+    }
+  })
+  
+  // 按热度排序
+  return heatData.sort((a, b) => b.value - a.value)
+})
 
 // 可视化选项状态
 const selectedVizOption = ref('radar')
