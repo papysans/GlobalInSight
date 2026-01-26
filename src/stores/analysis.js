@@ -419,6 +419,19 @@ export const useAnalysisStore = defineStore("analysis", {
             });
         },
 
+        // 停止分析（取消 SSE 请求）
+        stopAnalysis() {
+            console.log('[AnalysisStore] 🛑 停止分析');
+            const aborted = api.abortAnalysis();
+            this.isLoading = false;
+            
+            // 停止工作流状态轮询
+            const workflowStore = useWorkflowStore();
+            workflowStore.stopPolling();
+            
+            return aborted;
+        },
+
         async startAnalysis(payload) {
             // 🧹 彻底清除所有旧数据（包括缓存）
             this.logs = [];

@@ -5,6 +5,9 @@
 
 const API_BASE_URL = "http://127.0.0.1:8000/api";
 
+// 当前活跃的 SSE AbortController（用于取消请求）
+let currentAbortController = null;
+
 /**
  * 通用请求函数
  */
@@ -51,8 +54,13 @@ async function request(url, options = {}) {
 async function streamRequest(url, options = {}, onMessage) {
     console.log("[API] 开始SSE请求:", url, options);
 
+    // 创建新的 AbortController
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+
     const response = await fetch(`${API_BASE_URL}${url}`, {
         ...options,
+        signal,
         headers: {
             "Content-Type": "application/json",
             ...options.headers,
@@ -80,6 +88,7 @@ async function streamRequest(url, options = {}, onMessage) {
         const { value, done } = await reader.read();
         if (done) {
             console.log("[API] SSE流读取完成，共处理", eventCount, "个事件");
+            currentAbortController = null;
             break;
         }
 
@@ -118,6 +127,20 @@ async function streamRequest(url, options = {}, onMessage) {
 }
 
 export const api = {
+    /**
+     * 取消当前正在进行的 SSE 请求
+     */
+    abortAnalysis() {
+        if (currentAbortController) {
+            console.log("[API] 🛑 取消 SSE 请求");
+            currentAbortController.abort();
+            currentAbortController = null;
+            return true;
+        }
+        console.log("[API] ⚠️ 没有活跃的 SSE 请求可取消");
+        return false;
+    },
+
     /**
      * 执行完整工作流分析
      * @param {Object} payload - { topic, urls?, platforms? }

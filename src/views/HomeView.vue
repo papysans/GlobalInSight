@@ -958,12 +958,9 @@ const handleStart = async () => {
   // }
 
   if (isLoading.value) {
-    // 停止分析
-    isLoading.value = false
-    debateLogs.value = []
-    insight.value = ''
-    xhsPreview.value = { title: '', content: '' }
-    finalCopy.value = ''
+    // 停止分析 - 调用 store 的 stopAnalysis 方法
+    console.log('[HomeView] 🛑 用户点击停止分析')
+    analysisStore.stopAnalysis()
     return
   }
 
