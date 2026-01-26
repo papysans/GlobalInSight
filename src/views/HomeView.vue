@@ -214,8 +214,8 @@
 
           <div class="glass-card p-6 rounded-xl shadow-lg flex justify-center bg-slate-100/50">
             <div
-              class="glass-card rounded-[3rem] overflow-hidden shadow-2xl bg-white w-full max-w-[320px] h-[680px] flex flex-col transform transition hover:scale-[1.02] duration-300"
-              style="border: 8px solid #1e293b;">
+              class="phone-preview rounded-[3rem] overflow-hidden shadow-2xl bg-white w-full max-w-[320px] h-[680px] flex flex-col transform transition hover:scale-[1.02] duration-300"
+              style="border: 8px solid #000000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
               <!-- Status Bar -->
               <div class="relative bg-white px-5 h-10 flex items-center justify-between z-10 flex-shrink-0 select-none">
                 <span class="text-[10px] font-bold text-slate-900 w-8">09:41</span>
@@ -475,6 +475,9 @@ const md = new MarkdownIt()
 const analysisStore = useAnalysisStore()
 const configStore = useConfigStore()
 const workflowStore = useWorkflowStore()
+
+// 深色模式
+const isDark = computed(() => configStore.isDarkMode)
 
 // 使用 storeToRefs 确保响应式
 const { logs: storeLogs, isEditing, editableContent } = storeToRefs(analysisStore)
@@ -1518,5 +1521,39 @@ onMounted(() => {
 .image-fade-leave-from {
   opacity: 1;
   transform: scale(1);
+}
+
+/* === 深色模式 scoped 样式 === */
+
+/* 辩论气泡深色模式 */
+:global(html.dark) .debate-bubble {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+:global(html.dark) .debate-bubble.border-yellow-200 {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+:global(html.dark) .debate-bubble.border-blue-200 {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+:global(html.dark) .debate-bubble.border-red-200 {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+:global(html.dark) .debate-bubble.border-purple-200 {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+:global(html.dark) .debate-bubble.border-slate-100,
+:global(html.dark) .debate-bubble.border-slate-200 {
+  background: rgba(71, 85, 105, 0.3);
+  border-color: rgba(71, 85, 105, 0.5);
 }
 </style>

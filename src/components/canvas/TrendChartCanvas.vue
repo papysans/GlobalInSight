@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPreview" class="w-full h-full bg-white rounded-xl shadow-lg p-6">
-    <div class="text-sm text-slate-500">趋势图预览</div>
+  <div v-if="showPreview" class="w-full h-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+    <div class="text-sm text-slate-500 dark:text-slate-400">趋势图预览</div>
   </div>
 </template>
 
@@ -209,9 +209,15 @@ const generateImage = async () => {
   ctx.fillText(growthText, WIDTH - 100, statusY + 75)
   
   // 7. 底部水印
+  // 数据来源说明
   ctx.fillStyle = '#cbd5e1'
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'
+  ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.textAlign = 'center'
+  ctx.fillText('* 基于语义分析的热度推演模型', WIDTH / 2, HEIGHT - 95)
+  
+  // 品牌水印
+  ctx.fillStyle = '#cbd5e1'
+  ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
   const dataUrl = canvas.toDataURL('image/png')

@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPreview" class="w-full h-full bg-white rounded-xl shadow-lg p-6">
-    <div class="text-sm text-slate-500">洞察卡预览</div>
+  <div v-if="showPreview" class="w-full h-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+    <div class="text-sm text-slate-500 dark:text-slate-400">洞察卡预览</div>
   </div>
 </template>
 
@@ -36,7 +36,7 @@ const generateImage = async () => {
   canvas.height = HEIGHT
   const ctx = canvas.getContext('2d')
   
-  // 1. 背景渐变
+  // 1. 背景渐变 - 始终使用浅色（输出用）
   const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
   gradient.addColorStop(0, '#ffffff')
   gradient.addColorStop(1, '#eff6ff')
@@ -128,9 +128,15 @@ const generateImage = async () => {
   })
   
   // 5. 底部水印
+  // 数据来源说明
   ctx.fillStyle = '#cbd5e1'
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'
+  ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.textAlign = 'center'
+  ctx.fillText('* 核心洞察由 Multi-Agent 协作分析生成', WIDTH / 2, HEIGHT - 95)
+  
+  // 品牌水印
+  ctx.fillStyle = '#cbd5e1'
+  ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
   return canvas.toDataURL('image/png')

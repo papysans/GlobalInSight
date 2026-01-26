@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPreview" class="w-full h-full bg-white rounded-xl shadow-lg p-6">
-    <div class="text-sm text-slate-500">雷达图预览</div>
+  <div v-if="showPreview" class="w-full h-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+    <div class="text-sm text-slate-500 dark:text-slate-400">雷达图预览</div>
   </div>
 </template>
 
@@ -169,9 +169,15 @@ const generateImage = async () => {
   })
   
   // 6. 底部水印
+  // 数据来源说明
   ctx.fillStyle = '#cbd5e1'
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'
+  ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.textAlign = 'center'
+  ctx.fillText('* 数值基于各平台实际爬取内容数量归一化', WIDTH / 2, HEIGHT - 95)
+  
+  // 品牌水印
+  ctx.fillStyle = '#cbd5e1'
+  ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
   const dataUrl = canvas.toDataURL('image/png')

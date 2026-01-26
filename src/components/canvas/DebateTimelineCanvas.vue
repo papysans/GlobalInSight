@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPreview" class="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl shadow-lg p-6">
-    <div class="text-sm text-slate-500">辩论时间线预览</div>
+  <div v-if="showPreview" class="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-lg p-6">
+    <div class="text-sm text-slate-500 dark:text-slate-400">辩论时间线预览</div>
   </div>
 </template>
 
@@ -97,8 +97,11 @@ const generateImage = async () => {
   const maxRounds = Math.min(props.timeline.length, 8)
   const timeline = props.timeline.slice(0, maxRounds)
   
-  // 1. 背景 - 浅灰色
-  ctx.fillStyle = '#f5f5f5'
+  // 1. 背景 - 始终使用浅色（输出用），与其他组件统一
+  const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+  gradient.addColorStop(0, '#ffffff')
+  gradient.addColorStop(1, '#eff6ff')
+  ctx.fillStyle = gradient
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
   
   // 2. 顶部标题区域（与 InsightCanvas/KeyFindingsCanvas 一致）
@@ -127,7 +130,7 @@ const generateImage = async () => {
   // 3. 布局计算
   const PADDING_TOP = 40           // 标题下方间距
   const SUMMARY_BOX_HEIGHT = 100   // 绿色总结框高度
-  const WATERMARK_AREA = 80        // 底部水印区域
+  const WATERMARK_AREA = 140       // 底部水印区域（增加以避免重叠）
   const PADDING_BOTTOM = 30        // 总结框上方间距
   
   // 可用于时间线的区域
@@ -251,15 +254,15 @@ const generateImage = async () => {
   
   // 5. 底部水印
   // 数据来源说明
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#cbd5e1'
   ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('* 推理过程由 Multi-Agent Debate 框架自动生成', WIDTH / 2, HEIGHT - 65)
+  ctx.fillText('* 推理过程由 Multi-Agent Debate 框架自动生成', WIDTH / 2, HEIGHT - 95)
   
   // 品牌水印
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#cbd5e1'
   ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'
-  ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 35)
+  ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
   const dataUrl = canvas.toDataURL('image/png')
   console.log('[DebateTimelineCanvas] ✅ 辩论时间线生成完成，大小:', dataUrl.length, 'bytes')

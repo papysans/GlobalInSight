@@ -498,4 +498,65 @@ const handleCancel = () => {
   opacity: 0;
   transform: translateY(-20px);
 }
+
+/* === 深色模式样式 === */
+
+/* 编辑面板容器 */
+:global(html.dark) .glass-card.border-blue-200 {
+  background: #1e293b;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* 标签文字 */
+:global(html.dark) .text-slate-700 {
+  color: #cbd5e1;
+}
+
+/* 输入框 */
+:global(html.dark) input.border-blue-300,
+:global(html.dark) textarea.border-blue-300 {
+  background: #0f172a;
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #e2e8f0;
+}
+
+:global(html.dark) input.border-blue-300:focus,
+:global(html.dark) textarea.border-blue-300:focus {
+  border-color: #3b82f6;
+}
+
+:global(html.dark) input::placeholder,
+:global(html.dark) textarea::placeholder {
+  color: #64748b;
+}
+
+/* 错误状态输入框 */
+:global(html.dark) input.border-red-500.bg-red-50,
+:global(html.dark) textarea.border-red-500.bg-red-50 {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+}
+
+/* 提示文字 */
+:global(html.dark) .text-slate-500 {
+  color: #64748b;
+}
+
+/* 未选中图片区域 */
+:global(html.dark) .bg-slate-50 {
+  background: rgba(51, 65, 85, 0.3);
+}
+
+/* 取消按钮 */
+:global(html.dark) .bg-slate-200 {
+  background: #334155;
+}
+
+:global(html.dark) .bg-slate-200:hover {
+  background: #475569;
+}
+
+:global(html.dark) .bg-slate-200.text-slate-700 {
+  color: #e2e8f0;
+}
 </style>

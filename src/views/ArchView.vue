@@ -10,7 +10,17 @@
         <p class="text-slate-500 text-lg relative">Multi-Agent Debate Framework · LangGraph Orchestration</p>
       </div>
 
-      <!-- 动态数据流架构图 -->
+      <!-- 3D Agent 网络可视化 -->
+      <div class="mb-12">
+        <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <BrainCircuit class="w-6 h-6 text-emerald-600" />
+          Multi-Agent 协作网络
+          <span class="text-sm font-normal text-slate-400 ml-2">（鼠标悬停查看详情）</span>
+        </h3>
+        <AgentNetwork3D />
+      </div>
+
+      <!-- 数据流架构图 -->
       <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 md:p-12 mb-8 relative overflow-hidden">
         <!-- 背景动画网格 -->
         <div class="absolute inset-0 opacity-10">
@@ -26,7 +36,7 @@
 
         <h3 class="text-xl font-bold text-white mb-8 flex items-center gap-2 relative z-10">
           <Workflow class="w-6 h-6 text-blue-400" />
-          Multi-Agent Debate 数据流
+          数据处理流水线
         </h3>
 
         <!-- 横向流程图 -->
@@ -98,51 +108,6 @@
         </div>
       </div>
 
-      <!-- Agent 详细卡片 -->
-      <div class="mb-8">
-        <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Users class="w-6 h-6 text-emerald-600" />
-          Multi-Agent Debate 角色
-        </h3>
-        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="agent-card group" style="--agent-color: #3b82f6;">
-            <div class="agent-icon bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white">
-              <FileText class="w-5 h-5" />
-            </div>
-            <div class="agent-name">Reporter</div>
-            <div class="agent-desc">事实提取 · 多源聚合</div>
-            <div class="agent-detail">从多平台数据中提取核心事实，构建事件全景</div>
-          </div>
-
-          <div class="agent-card group" style="--agent-color: #8b5cf6;">
-            <div class="agent-icon bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white">
-              <Search class="w-5 h-5" />
-            </div>
-            <div class="agent-name">Analyst</div>
-            <div class="agent-desc">深度分析 · 洞察生成</div>
-            <div class="agent-detail">多维度舆情分析，生成结构化洞察结论</div>
-          </div>
-
-          <div class="agent-card group" style="--agent-color: #10b981;">
-            <div class="agent-icon bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white">
-              <MessageSquare class="w-5 h-5" />
-            </div>
-            <div class="agent-name">Debater</div>
-            <div class="agent-desc">观点碰撞 · 事实核查</div>
-            <div class="agent-detail">多角度辩论推演，挖掘深层观点分歧</div>
-          </div>
-
-          <div class="agent-card group" style="--agent-color: #f59e0b;">
-            <div class="agent-icon bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white">
-              <PenTool class="w-5 h-5" />
-            </div>
-            <div class="agent-name">Writer</div>
-            <div class="agent-desc">爆款文案 · 风格适配</div>
-            <div class="agent-detail">生成小红书/抖音风格的传播文案</div>
-          </div>
-        </div>
-      </div>
-
       <!-- LLM 支持矩阵 -->
       <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-8">
         <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -207,10 +172,10 @@
           <ul class="tech-stack-list">
             <li><strong>Vue 3</strong> - Composition API</li>
             <li><strong>Pinia</strong> - 响应式状态管理</li>
-            <li><strong>Tailwind CSS</strong> - 原子化样式</li>
+            <li><strong>Three.js</strong> - 3D 可视化</li>
+            <li><strong>GSAP</strong> - 高级动画</li>
             <li><strong>Canvas API</strong> - 图片生成</li>
-            <li><strong>Chart.js</strong> - 数据可视化</li>
-            <li><strong>Lucide</strong> - 图标系统</li>
+            <li><strong>Tailwind CSS</strong> - 原子化样式</li>
           </ul>
         </div>
 
@@ -236,9 +201,9 @@
 <script setup>
 import {
   Network, Database, Cpu, BrainCircuit, Sparkles, Send, ArrowRight, ArrowDown,
-  Workflow, Users, FileText, Search, MessageSquare, PenTool, Zap,
-  Server, Monitor, Cloud
+  Workflow, Zap, Server, Monitor, Cloud
 } from 'lucide-vue-next'
+import AgentNetwork3D from '@/components/AgentNetwork3D.vue'
 </script>
 
 <style scoped>
@@ -344,52 +309,6 @@ import {
 .tech-tag:hover {
   background: rgba(255, 255, 255, 0.2);
   color: white;
-}
-
-/* Agent 卡片 */
-.agent-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.25rem;
-  border: 2px solid #e2e8f0;
-  transition: all 0.3s ease;
-  cursor: default;
-}
-
-.agent-card:hover {
-  border-color: var(--agent-color);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  transform: translateY(-4px);
-}
-
-.agent-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.75rem;
-  transition: all 0.3s ease;
-}
-
-.agent-name {
-  font-weight: 700;
-  font-size: 1rem;
-  color: #1e293b;
-  margin-bottom: 0.25rem;
-}
-
-.agent-desc {
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-bottom: 0.5rem;
-}
-
-.agent-detail {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  line-height: 1.4;
 }
 
 /* LLM 徽章 */

@@ -9,12 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tsparticles/slim": "^3.9.1",
+    "@tsparticles/vue3": "^3.0.1",
+    "@types/three": "^0.182.0",
     "@vueuse/core": "^14.1.0",
     "chart.js": "^4.5.1",
+    "gsap": "^3.14.2",
     "lucide-vue-next": "^0.562.0",
     "markdown-it": "^14.1.0",
     "marked": "^17.0.1",
     "pinia": "^2.1.7",
+    "three": "^0.182.0",
     "vue": "^3.4.21",
     "vue-draggable-plus": "^0.5.3"
   },

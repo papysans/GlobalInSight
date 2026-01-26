@@ -8,6 +8,7 @@ export const useConfigStore = defineStore('config', {
         error: null,
         modelsByProvider: null, // 缓存的模型列表
         modelsCacheTime: null, // 缓存时间戳
+        darkMode: localStorage.getItem('grandchart_dark_mode') === 'true', // 深色模式
     }),
 
     getters: {
@@ -15,6 +16,7 @@ export const useConfigStore = defineStore('config', {
         crawlerLimits: (state) => (state.config && state.config.crawler_limits) || {},
         debateMaxRounds: (state) => (state.config && state.config.debate_max_rounds) || 4,
         defaultPlatforms: (state) => (state.config && state.config.default_platforms) || [],
+        isDarkMode: (state) => state.darkMode,
         getUserApis: () => {
             const saved = localStorage.getItem('grandchart_user_apis_v2');
             if (saved) {
@@ -136,6 +138,34 @@ export const useConfigStore = defineStore('config', {
                 }
                 throw err;
             }
+        },
+
+        // 切换深色模式
+        toggleDarkMode() {
+            this.darkMode = !this.darkMode;
+            localStorage.setItem('grandchart_dark_mode', this.darkMode.toString());
+            this.applyDarkMode();
+        },
+
+        // 设置深色模式
+        setDarkMode(value) {
+            this.darkMode = value;
+            localStorage.setItem('grandchart_dark_mode', value.toString());
+            this.applyDarkMode();
+        },
+
+        // 应用深色模式到 DOM
+        applyDarkMode() {
+            if (this.darkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        },
+
+        // 初始化深色模式（应用启动时调用）
+        initDarkMode() {
+            this.applyDarkMode();
         },
     },
 });

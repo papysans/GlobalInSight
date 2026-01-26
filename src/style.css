@@ -1,13 +1,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 浅色模式（默认） */
 body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-family: 'Noto Sans SC', sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 深色模式 */
+html.dark body {
+    background-color: #0f172a;
+    color: #f1f5f9;
+}
+
+html.dark .view-section {
+    background-color: #0f172a;
+}
+
+html.dark .bg-white {
+    background-color: #1e293b !important;
+}
+
+html.dark .bg-slate-50 {
+    background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-100 {
+    background-color: #1e293b !important;
+}
+
+html.dark .text-slate-900 {
+    color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-800 {
+    color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-700 {
+    color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-600 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-slate-500 {
+    color: #64748b !important;
+}
+
+html.dark .text-slate-400 {
+    color: #64748b !important;
+}
+
+html.dark .border-slate-200 {
+    border-color: #334155 !important;
+}
+
+html.dark .border-slate-100 {
+    border-color: #1e293b !important;
+}
+
+html.dark .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark .glass-card {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(71, 85, 105, 0.8);
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+    background-color: #1e293b;
+    color: #f1f5f9;
+    border-color: #475569;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+    color: #64748b;
 }
 
 .gradient-text {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+html.dark .gradient-text {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -30,6 +118,10 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 20px;
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #475569;
 }
 
 @keyframes fadeIn {
@@ -59,6 +151,12 @@ body {
     color: #1d4ed8 !important;
 }
 
+html.dark .btn-selected {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    border-color: #3b82f6 !important;
+    color: #60a5fa !important;
+}
+
 .theme-btn.active {
     ring-width: 2px;
     ring-color: #3b82f6;
@@ -68,6 +166,10 @@ body {
 .locked-overlay {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(4px);
+}
+
+html.dark .locked-overlay {
+    background: rgba(15, 23, 42, 0.8);
 }
 
 .typing-indicator span {
@@ -102,4 +204,493 @@ body {
 .modal-overlay {
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
+}
+
+
+/* ========================================
+   HomeView 深色模式样式
+   ======================================== */
+
+/* === 智能体协作区域 (Multi-Agent Debate) === */
+
+/* 辩论气泡基础样式 */
+html.dark .debate-bubble {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+html.dark .debate-bubble .text-slate-700 {
+    color: #cbd5e1 !important;
+}
+
+/* 辩论气泡角色颜色 - 深色模式适配 */
+html.dark .debate-bubble.border-yellow-200.bg-yellow-50 {
+    background: rgba(234, 179, 8, 0.15) !important;
+    border-color: rgba(234, 179, 8, 0.4) !important;
+}
+
+html.dark .debate-bubble.border-blue-200.bg-blue-50 {
+    background: rgba(59, 130, 246, 0.15) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+html.dark .debate-bubble.border-red-200.bg-red-50 {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+html.dark .debate-bubble.border-purple-200.bg-purple-50 {
+    background: rgba(168, 85, 247, 0.15) !important;
+    border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+html.dark .debate-bubble.border-slate-100.bg-slate-50,
+html.dark .debate-bubble.border-slate-200.bg-slate-50 {
+    background: rgba(71, 85, 105, 0.3) !important;
+    border-color: rgba(71, 85, 105, 0.5) !important;
+}
+
+/* 辩论容器背景 */
+html.dark .bg-white\/50 {
+    background: rgba(30, 41, 59, 0.5) !important;
+}
+
+/* 辩论区顶部栏 */
+html.dark .bg-slate-50\/80 {
+    background: rgba(30, 41, 59, 0.9) !important;
+}
+
+/* 辩论区边框分隔线 */
+html.dark .border-slate-200\/50 {
+    border-color: rgba(71, 85, 105, 0.5) !important;
+}
+
+/* 模型标签 */
+html.dark .debate-bubble .bg-slate-50 {
+    background: rgba(51, 65, 85, 0.6) !important;
+}
+
+/* === 核心洞察区域 (Grand Insight) === */
+
+/* 核心洞察渐变背景 */
+html.dark .bg-gradient-to-br.from-yellow-50.to-orange-50 {
+    background: linear-gradient(to bottom right, rgba(234, 179, 8, 0.12), rgba(249, 115, 22, 0.12)) !important;
+    border-color: rgba(234, 179, 8, 0.3) !important;
+}
+
+html.dark .border-yellow-100 {
+    border-color: rgba(234, 179, 8, 0.3) !important;
+}
+
+html.dark .text-orange-600 {
+    color: #fb923c !important;
+}
+
+/* 核心洞察空状态 */
+html.dark .border-dashed.border-slate-200 {
+    border-color: #475569 !important;
+    background: rgba(51, 65, 85, 0.3) !important;
+}
+
+/* === 实时生成预览区域 (Preview) === */
+
+/* 预览区外层容器 */
+html.dark .bg-slate-100\/50 {
+    background: rgba(30, 41, 59, 0.6) !important;
+}
+
+/* ========================================
+   手机预览框架 - 始终保持浅色主题
+   使用高优先级选择器确保不被暗色模式覆盖
+   ======================================== */
+
+html.dark .phone-preview,
+html.dark .phone-preview * {
+    /* 在深色模式下，手机预览保持浅色 */
+}
+
+html.dark .phone-preview {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+/* 手机预览内所有元素重置为浅色主题（仅在深色模式下需要覆盖） */
+html.dark .phone-preview .bg-white {
+    background-color: #ffffff !important;
+}
+
+html.dark .phone-preview .text-slate-900 {
+    color: #0f172a !important;
+}
+
+html.dark .phone-preview .text-slate-800 {
+    color: #1e293b !important;
+}
+
+html.dark .phone-preview .text-slate-700 {
+    color: #334155 !important;
+}
+
+html.dark .phone-preview .text-slate-600 {
+    color: #475569 !important;
+}
+
+html.dark .phone-preview .text-slate-500 {
+    color: #64748b !important;
+}
+
+html.dark .phone-preview .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+html.dark .phone-preview .border-slate-100 {
+    border-color: #f1f5f9 !important;
+}
+
+html.dark .phone-preview .border-slate-200 {
+    border-color: #e2e8f0 !important;
+}
+
+html.dark .phone-preview .bg-slate-50 {
+    background-color: #f8fafc !important;
+}
+
+html.dark .phone-preview .bg-slate-100 {
+    background-color: #f1f5f9 !important;
+}
+
+html.dark .phone-preview .bg-slate-200 {
+    background-color: #e2e8f0 !important;
+}
+
+/* 手机预览内的 prose 内容 */
+html.dark .phone-preview .prose {
+    color: #475569 !important;
+}
+
+html.dark .phone-preview .prose strong {
+    color: #1e293b !important;
+}
+
+/* === 文案生成区域 (Copywriting) === */
+
+html.dark .bg-slate-50 {
+    background: #1e293b !important;
+}
+
+html.dark .border-t-emerald-500 {
+    border-top-color: #10b981 !important;
+}
+
+html.dark .border-t-blue-500 {
+    border-top-color: #3b82f6 !important;
+}
+
+html.dark .border-l-yellow-400 {
+    border-left-color: #facc15 !important;
+}
+
+/* 文案编辑区 textarea */
+html.dark textarea.bg-slate-50 {
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+html.dark textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* === 进度条区域 === */
+
+html.dark .bg-slate-200 {
+    background: #334155 !important;
+}
+
+/* === 工作流步骤卡片 === */
+
+html.dark .border-slate-200 {
+    border-color: #334155 !important;
+}
+
+/* 工作流卡片容器 */
+html.dark .bg-white.rounded-xl.shadow-lg.border.border-slate-200 {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* 工作流步骤状态 - 待执行 */
+html.dark .border-slate-200.bg-slate-50 {
+    background: rgba(51, 65, 85, 0.3) !important;
+    border-color: #475569 !important;
+}
+
+/* 工作流步骤状态 - 进行中 */
+html.dark .border-blue-500.bg-blue-50 {
+    background: rgba(59, 130, 246, 0.15) !important;
+    border-color: #3b82f6 !important;
+}
+
+/* 工作流步骤状态 - 已完成 */
+html.dark .border-green-200.bg-green-50 {
+    background: rgba(34, 197, 94, 0.15) !important;
+    border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+/* === 热搜标签 === */
+
+html.dark .bg-white.border.border-slate-200.rounded-full {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #cbd5e1 !important;
+}
+
+html.dark .bg-white.border.border-slate-200.rounded-full:hover {
+    border-color: #3b82f6 !important;
+    color: #60a5fa !important;
+}
+
+/* === 搜索框 === */
+
+html.dark .bg-white.rounded-xl.shadow-xl.border.border-slate-200 {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+html.dark .text-slate-400 {
+    color: #64748b !important;
+}
+
+/* 搜索框输入文字 */
+html.dark input.bg-transparent {
+    color: #e2e8f0 !important;
+}
+
+/* === 标题文字 === */
+
+html.dark .text-slate-800 {
+    color: #e2e8f0 !important;
+}
+
+/* === 绿色状态指示 === */
+
+html.dark .bg-green-50 {
+    background: rgba(34, 197, 94, 0.15) !important;
+}
+
+html.dark .text-green-700 {
+    color: #4ade80 !important;
+}
+
+html.dark .border-green-100 {
+    border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* === 顶部进度条 === */
+
+html.dark .sticky.top-16.z-40.bg-white {
+    background: #1e293b !important;
+}
+
+/* === Header 区域 === */
+
+html.dark header.bg-white {
+    background: #0f172a !important;
+}
+
+html.dark header .border-slate-100 {
+    border-color: #1e293b !important;
+}
+
+/* === Prose 内容 === */
+
+html.dark .prose {
+    color: #cbd5e1 !important;
+}
+
+html.dark .prose strong {
+    color: #f1f5f9 !important;
+}
+
+html.dark .prose a {
+    color: #60a5fa !important;
+}
+
+/* === 蓝色状态指示 === */
+
+html.dark .text-blue-600 {
+    color: #60a5fa !important;
+}
+
+html.dark .text-blue-700 {
+    color: #93c5fd !important;
+}
+
+/* === 紫色状态指示 === */
+
+html.dark .text-purple-600 {
+    color: #c084fc !important;
+}
+
+/* === 黄色状态指示 === */
+
+html.dark .text-yellow-500 {
+    color: #fbbf24 !important;
+}
+
+/* === 红色状态指示 === */
+
+html.dark .text-red-500 {
+    color: #f87171 !important;
+}
+
+/* === 辩论轮数输入框 === */
+
+html.dark input[type="number"].border-slate-200 {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark input[type="number"]:focus {
+    border-color: #3b82f6 !important;
+}
+
+/* ========================================
+   DataView 深色模式样式
+   ======================================== */
+
+/* 数据锁定提示卡片 */
+html.dark .bg-blue-50.border-blue-200 {
+    background: rgba(59, 130, 246, 0.15) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+html.dark .bg-blue-100 {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* 数据可视化生成按钮区域 */
+html.dark .bg-gradient-to-r.from-purple-50.to-pink-50 {
+    background: linear-gradient(to right, rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.15)) !important;
+    border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+html.dark .bg-purple-100 {
+    background: rgba(168, 85, 247, 0.25) !important;
+}
+
+/* 关键发现卡片 */
+html.dark .bg-gradient-to-br.from-orange-50.to-amber-50 {
+    background: linear-gradient(to bottom right, rgba(249, 115, 22, 0.15), rgba(245, 158, 11, 0.15)) !important;
+    border-color: rgba(249, 115, 22, 0.4) !important;
+}
+
+html.dark .border-orange-200 {
+    border-color: rgba(249, 115, 22, 0.4) !important;
+}
+
+/* 右侧数据可视化卡片 */
+html.dark .bg-white.rounded-2xl.shadow-lg.p-6.border.border-slate-200 {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* Tab 选择器按钮 */
+html.dark .bg-slate-100.text-slate-600 {
+    background: #334155 !important;
+    color: #94a3b8 !important;
+}
+
+html.dark .bg-slate-100.text-slate-600:hover {
+    background: #475569 !important;
+}
+
+/* 图表容器内的标题 */
+html.dark .chart-container .text-slate-900 {
+    color: #f1f5f9 !important;
+}
+
+/* Agent 信息卡片 */
+html.dark .bg-gradient-to-br.from-indigo-50.to-purple-50 {
+    background: linear-gradient(to bottom right, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15)) !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+html.dark .border-indigo-100 {
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+html.dark .border-indigo-200 {
+    border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+html.dark .text-indigo-700 {
+    color: #a5b4fc !important;
+}
+
+html.dark .text-indigo-600 {
+    color: #818cf8 !important;
+}
+
+/* LLM 内容展示区 */
+html.dark .bg-gradient-to-br.from-white.to-indigo-50\/30 {
+    background: linear-gradient(to bottom right, #1e293b, rgba(99, 102, 241, 0.1)) !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* 数据源选择按钮 */
+html.dark .bg-indigo-50.border-indigo-500 {
+    background: rgba(99, 102, 241, 0.2) !important;
+    border-color: #6366f1 !important;
+}
+
+/* 热点选择器 */
+html.dark .bg-orange-50.border-orange-300 {
+    background: rgba(249, 115, 22, 0.15) !important;
+    border-color: rgba(249, 115, 22, 0.5) !important;
+}
+
+html.dark .bg-orange-50.hover\:bg-orange-100 {
+    background: rgba(249, 115, 22, 0.15) !important;
+}
+
+html.dark .bg-orange-50.hover\:bg-orange-100:hover {
+    background: rgba(249, 115, 22, 0.25) !important;
+}
+
+/* 预览区域背景 */
+html.dark .bg-slate-100.rounded-3xl {
+    background: #0f172a !important;
+}
+
+/* 实时生成预览区域背景 - 深色模式下稍浅 */
+html.dark .bg-slate-100\/50 {
+    background: rgba(30, 41, 59, 1) !important;
+}
+
+/* 加载遮罩 */
+html.dark .bg-white\/90.backdrop-blur-sm {
+    background: rgba(15, 23, 42, 0.9) !important;
+}
+
+/* 状态标签 */
+html.dark .bg-emerald-100.text-emerald-700 {
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: #34d399 !important;
+}
+
+html.dark .bg-amber-100.text-amber-700 {
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+}
+
+html.dark .bg-blue-100.text-blue-700 {
+    background: rgba(59, 130, 246, 0.2) !important;
+    color: #60a5fa !important;
+}
+
+/* 橙色文字 */
+html.dark .text-orange-600 {
+    color: #fb923c !important;
 }

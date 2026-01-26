@@ -13,8 +13,8 @@
 
         <!-- 右侧：内容 -->
         <div class="flex-1 pt-1">
-          <div class="bg-slate-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <div class="text-sm font-bold text-slate-800 mb-2">{{ item.title }}</div>
+          <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 border-l-4 border-blue-500">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">{{ item.title }}</div>
             
             <!-- 内容区域 -->
             <div class="relative">
@@ -24,13 +24,13 @@
                   expandedStates[index] ? 'max-h-[1000px]' : 'max-h-20'
                 ]"
               >
-                <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{{ item.insight }}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{{ item.insight }}</p>
               </div>
               
               <!-- 渐变遮罩 -->
               <div 
                 v-if="!expandedStates[index] && needsExpansion(item.insight)" 
-                class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"
+                class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-50 dark:from-slate-700 to-transparent pointer-events-none"
               ></div>
             </div>
             
@@ -38,7 +38,7 @@
             <button 
               v-if="needsExpansion(item.insight)"
               @click="toggleExpand(index)"
-              class="text-blue-600 hover:text-blue-700 text-xs mt-2 flex items-center gap-1 transition-colors"
+              class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs mt-2 flex items-center gap-1 transition-colors"
             >
               {{ expandedStates[index] ? '收起' : '展开全文' }}
               <ChevronDown 
@@ -52,15 +52,15 @@
     </div>
 
     <!-- 总结 -->
-    <div v-if="timeline.length > 0" class="summary mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-      <div class="flex items-center gap-2 text-sm text-slate-700">
-        <CheckCircle class="w-4 h-4 text-green-600" />
+    <div v-if="timeline.length > 0" class="summary mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-700 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-600">
+      <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <CheckCircle class="w-4 h-4 text-green-600 dark:text-green-400" />
         <span>经过 <strong>{{ timeline.length }}轮</strong> 辩论，AI推理最终收敛</span>
       </div>
     </div>
 
     <!-- 空状态 -->
-    <div v-if="timeline.length === 0" class="text-center py-8 text-slate-500">
+    <div v-if="timeline.length === 0" class="text-center py-8 text-slate-500 dark:text-slate-400">
       <div class="text-sm">暂无辩论数据</div>
     </div>
   </div>

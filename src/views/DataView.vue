@@ -2,21 +2,21 @@
   <div class="view-section animate-fade-in py-12 px-4">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-8">
-        <h2 class="text-3xl font-bold text-slate-900 mb-2">多维数据洞察</h2>
-        <p class="text-slate-500">基于真实数据的AI推理可视化</p>
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">多维数据洞察</h2>
+        <p class="text-slate-500 dark:text-slate-400">基于真实数据的AI推理可视化</p>
       </div>
 
       <!-- 数据锁定提示 -->
       <div
         v-if="!dataUnlocked"
-        class="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-6 flex items-start gap-4"
+        class="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-6 flex items-start gap-4"
       >
-        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-          <Lock class="w-6 h-6 text-blue-600" />
+        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center flex-shrink-0">
+          <Lock class="w-6 h-6 text-blue-600 dark:text-blue-400" />
         </div>
         <div class="flex-1">
-          <h3 class="text-lg font-bold text-slate-900 mb-2">数据尚未生成</h3>
-          <p class="text-slate-600 mb-4">请先在「舆情推演」页面启动分析，系统将基于辩论结果自动生成数据洞察。</p>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">数据尚未生成</h3>
+          <p class="text-slate-600 dark:text-slate-400 mb-4">请先在「舆情推演」页面启动分析，系统将基于辩论结果自动生成数据洞察。</p>
           <button
             @click="$emit('switch-tab', 'home')"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
@@ -29,14 +29,14 @@
       <!-- 测试按钮（仅在数据已解锁时显示） -->
       <div v-if="dataUnlocked" class="mb-6 space-y-4">
         <!-- 生成图表按钮 -->
-        <div class="flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
+        <div class="flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-700/50 rounded-xl p-4">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <Download class="w-5 h-5 text-purple-600" />
+            <div class="w-10 h-10 bg-purple-100 dark:bg-purple-800/50 rounded-full flex items-center justify-center">
+              <Download class="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h3 class="text-sm font-bold text-slate-900">数据可视化生成</h3>
-              <p class="text-xs text-slate-600">生成三张数据可视化图表用于小红书发布</p>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">数据可视化生成</h3>
+              <p class="text-xs text-slate-600 dark:text-slate-400">生成三张数据可视化图表用于小红书发布</p>
             </div>
           </div>
           <button
@@ -81,9 +81,9 @@
           />
 
           <!-- 关键发现卡片 -->
-          <div v-if="keyFindings.length > 0" class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl shadow-lg p-6 border border-orange-200">
-            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles class="w-5 h-5 text-orange-600" />
+          <div v-if="keyFindings.length > 0" class="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl shadow-lg p-6 border border-orange-200 dark:border-orange-700/50">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Sparkles class="w-5 h-5 text-orange-600 dark:text-orange-400" />
               关键发现
             </h3>
             <div class="space-y-3">
@@ -91,7 +91,7 @@
                 <div class="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                   {{ index + 1 }}
                 </div>
-                <p class="text-sm text-slate-700 leading-relaxed">{{ finding }}</p>
+                <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{{ finding }}</p>
               </div>
             </div>
           </div>
@@ -121,9 +121,9 @@
         </div>
 
         <!-- 右侧列：数据可视化卡 -->
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
           <!-- Tab 选择器 -->
-          <div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+          <div class="flex gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
             <button
               v-for="option in vizOptions"
               :key="`viz-${option.type}`"
@@ -132,7 +132,7 @@
                 'px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2',
                 selectedVizOption === option.type
                   ? 'bg-blue-500 text-white shadow-md'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
               ]"
             >
               <component :is="option.icon" class="w-4 h-4" />
@@ -144,8 +144,8 @@
           <div class="chart-container relative" style="min-height: 400px;">
             <!-- 雷达图 -->
             <div v-if="selectedVizOption === 'radar'" class="animate-fade-in">
-              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Radar class="w-5 h-5 text-blue-600" />
+              <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Radar class="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 平台覆盖分布
               </h3>
               <RadarChart
@@ -156,8 +156,8 @@
 
             <!-- 辩论时间线 -->
             <div v-if="selectedVizOption === 'timeline'" class="animate-fade-in">
-              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <GitBranch class="w-5 h-5 text-purple-600" />
+              <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <GitBranch class="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 辩论演化过程
               </h3>
               <DebateTimeline
@@ -167,8 +167,8 @@
 
             <!-- 热度趋势 -->
             <div v-if="selectedVizOption === 'trend'" class="animate-fade-in">
-              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <TrendingUp class="w-5 h-5 text-green-600" />
+              <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <TrendingUp class="w-5 h-5 text-green-600 dark:text-green-400" />
                 热度趋势分析
               </h3>
               <TrendChart

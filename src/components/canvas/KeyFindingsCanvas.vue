@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPreview" class="w-full h-full bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl shadow-lg p-6">
-    <div class="text-sm text-slate-500">关键发现预览</div>
+  <div v-if="showPreview" class="w-full h-full bg-gradient-to-br from-orange-50 to-amber-50 dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-lg p-6">
+    <div class="text-sm text-slate-500 dark:text-slate-400">关键发现预览</div>
   </div>
 </template>
 
@@ -112,9 +112,15 @@ const generateImage = async () => {
   ctx.fill()
   
   // 5. 底部水印
+  // 数据来源说明
   ctx.fillStyle = '#d97706'
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'
+  ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.textAlign = 'center'
+  ctx.fillText('* 关键发现由 LLM 多维度分析自动提取', WIDTH / 2, HEIGHT - 95)
+  
+  // 品牌水印
+  ctx.fillStyle = '#d97706'
+  ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
   return canvas.toDataURL('image/png')
