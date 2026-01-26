@@ -77,13 +77,13 @@ const emojiStyle = computed(() => {
 const titleTextStyle = computed(() => {
     const pos = props.emojiPos
     const style = { 
-        maxWidth: '75%',
+        maxWidth: '65%', // 缩小最大宽度，给 emoji 留出空间
         position: 'absolute',
         wordBreak: 'break-word',
         fontSize: '2.5rem' // Ensure consistent preview size
     }
     
-    const verticalMargin = '18%'
+    const verticalMargin = '20%' // 增大垂直边距，避免和 emoji 重叠
     const horizontalMargin = '12%'
     
     switch(pos) {
@@ -227,7 +227,8 @@ const generateImage = async () => {
     ctx.strokeStyle = colors.textColor
     
     // --- Exclusion Zone Algorithm ---
-    const padding = 20
+    // 增大 padding 确保 emoji 和文字有足够间距
+    const padding = 60
     const emojiBox = {
         left: emojiX - halfEmojiSize - padding,
         right: emojiX + halfEmojiSize + padding,
@@ -239,27 +240,34 @@ const generateImage = async () => {
         const lineTop = lineY - lineHeight / 2
         const lineBottom = lineY + lineHeight / 2
         
+        // 如果行完全在 emoji 区域外，返回完整宽度
         if (lineBottom < emojiBox.top || lineTop > emojiBox.bottom) {
             return { width: maxTitleWidth }
         }
         
-        // Horizontal Collision
+        // 行与 emoji 区域有垂直重叠，需要计算可用宽度
         let availableWidth = maxTitleWidth
         
         if (textAlign === 'left') {
-            // Text Left-Aligned. Check if Emoji is on right blocking us.
-            if (emojiBox.left > textX) {
-                 availableWidth = Math.min(maxTitleWidth, emojiBox.left - textX)
+            // 文字左对齐（从 textX 开始向右）
+            // 检查 emoji 是否在文字右侧阻挡
+            const textRight = textX + maxTitleWidth
+            if (emojiBox.left < textRight && emojiBox.right > textX) {
+                // emoji 在文字区域内，需要缩短宽度
+                availableWidth = Math.max(0, emojiBox.left - textX)
             }
         } else {
-            // Text Right-Aligned. Check if Emoji is on left blocking us.
-            if (emojiBox.right < textX) {
-                availableWidth = Math.min(maxTitleWidth, textX - emojiBox.right)
+            // 文字右对齐（从 textX 向左）
+            // 检查 emoji 是否在文字左侧阻挡
+            const textLeft = textX - maxTitleWidth
+            if (emojiBox.right > textLeft && emojiBox.left < textX) {
+                // emoji 在文字区域内，需要缩短宽度
+                availableWidth = Math.max(0, textX - emojiBox.right)
             }
         }
         
-        // Ensure non-negative width
-        return { width: Math.max(50, availableWidth) }
+        // 确保最小宽度，避免文字被完全挤掉
+        return { width: Math.max(100, availableWidth) }
     }
 
     const computeLinesWithExclusion = (ctx, text, startY, lineHeight) => {

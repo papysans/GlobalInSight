@@ -33,36 +33,45 @@ const extractKeyPoint = (item) => {
   return text.substring(0, 30)
 }
 
-// 动态计算布局参数
-const calculateLayout = (roundCount) => {
-  if (roundCount <= 3) {
-    return { 
-      itemSpacing: 280,      // 🔧 调整这里：每个卡片之间的垂直间距
-      cardHeight: 240,       // 🔧 调整这里：卡片高度
-      contentFont: 26,
-      titleFont: 32
-    }
-  } else if (roundCount <= 5) {
-    return { 
-      itemSpacing: 240,      // 🔧 调整这里：4-5轮时的间距
-      cardHeight: 200,       // 🔧 调整这里：卡片高度
-      contentFont: 24,
-      titleFont: 30
-    }
-  } else if (roundCount <= 7) {
-    return { 
-      itemSpacing: 200,      // 🔧 调整这里：6-7轮时的间距
-      cardHeight: 180,       // 🔧 调整这里：卡片高度
-      contentFont: 22,
-      titleFont: 28
-    }
+// 动态计算布局参数 - 根据轮数自动调整
+const calculateLayout = (roundCount, availableHeight) => {
+  // 基础参数
+  const circleRadius = 45  // 圆圈半径
+  const minCardHeight = 120  // 最小卡片高度
+  const maxCardHeight = 200  // 最大卡片高度
+  
+  // 计算每个卡片可用的垂直空间
+  // 可用高度 / 轮数 = 每轮的空间
+  const spacePerRound = availableHeight / roundCount
+  
+  // 卡片高度 = 每轮空间的 70%（留 30% 给间距）
+  let cardHeight = Math.floor(spacePerRound * 0.75)
+  cardHeight = Math.max(minCardHeight, Math.min(maxCardHeight, cardHeight))
+  
+  // 间距 = 每轮空间 - 卡片高度的一半（因为卡片以圆心为中心）
+  const itemSpacing = spacePerRound
+  
+  // 字体大小根据卡片高度动态调整
+  let titleFont, contentFont
+  if (cardHeight >= 180) {
+    titleFont = 32
+    contentFont = 26
+  } else if (cardHeight >= 150) {
+    titleFont = 30
+    contentFont = 24
+  } else if (cardHeight >= 130) {
+    titleFont = 28
+    contentFont = 22
   } else {
-    return { 
-      itemSpacing: 170,      // 🔧 调整这里：8轮时的间距
-      cardHeight: 160,       // 🔧 调整这里：卡片高度
-      contentFont: 20,
-      titleFont: 26
-    }
+    titleFont = 26
+    contentFont = 20
+  }
+  
+  return { 
+    itemSpacing,
+    cardHeight,
+    contentFont,
+    titleFont
   }
 }
 
@@ -87,7 +96,6 @@ const generateImage = async () => {
   // 动态计算显示的轮数（最多8轮）
   const maxRounds = Math.min(props.timeline.length, 8)
   const timeline = props.timeline.slice(0, maxRounds)
-  const layout = calculateLayout(timeline.length)
   
   // 1. 背景 - 浅灰色
   ctx.fillStyle = '#f5f5f5'
@@ -116,32 +124,24 @@ const generateImage = async () => {
   ctx.textBaseline = 'middle'
   ctx.fillText('辩论演化过程', 200, headerY + headerHeight / 2)
   
-  // 3. 布局计算 - 简化且正确的垂直居中算法
-  // 
-  // 画布布局：
-  // [0-80]        顶部留白
-  // [80-200]      标题区域 (headerY=80, headerHeight=120)
-  // [200-260]     标题与时间线间距 (60px)
-  // [260-1260]    时间线内容区域 (1000px 可用)
-  // [1260-1340]   时间线与总结框间距 (80px，包含总结框)
-  // [1340-1440]   底部水印区域 (100px)
-  
-  const PADDING_TOP = 60           // 标题下方间距
-  const PADDING_BOTTOM = 60        // 总结框上方间距
+  // 3. 布局计算
+  const PADDING_TOP = 40           // 标题下方间距
   const SUMMARY_BOX_HEIGHT = 100   // 绿色总结框高度
   const WATERMARK_AREA = 80        // 底部水印区域
+  const PADDING_BOTTOM = 30        // 总结框上方间距
   
   // 可用于时间线的区域
   const contentAreaTop = headerY + headerHeight + PADDING_TOP
   const contentAreaBottom = HEIGHT - WATERMARK_AREA - SUMMARY_BOX_HEIGHT - PADDING_BOTTOM
   const availableHeight = contentAreaBottom - contentAreaTop
   
-  // 计算时间线实际需要的高度
-  // 时间线高度 = 第一个圆心到最后一个圆心的距离 + 卡片高度（因为卡片以圆心为中心）
-  const timelineHeight = (timeline.length - 1) * layout.itemSpacing + layout.cardHeight
+  // 使用新的自适应布局计算
+  const layout = calculateLayout(timeline.length, availableHeight)
   
-  // 计算起始Y（第一个圆心的位置），使时间线在可用区域内垂直居中
-  const startY = contentAreaTop + (availableHeight - timelineHeight) / 2 + layout.cardHeight / 2
+  // 计算起始Y - 第一个圆心的位置
+  // 时间线总高度 = (轮数-1) * 间距
+  const timelineHeight = (timeline.length - 1) * layout.itemSpacing
+  const startY = contentAreaTop + layout.cardHeight / 2 + (availableHeight - timelineHeight - layout.cardHeight) / 2
   
   console.log('[DebateTimelineCanvas] 📐 布局计算:', {
     contentAreaTop,
@@ -149,7 +149,8 @@ const generateImage = async () => {
     availableHeight,
     timelineHeight,
     startY,
-    rounds: timeline.length
+    rounds: timeline.length,
+    layout
   })
   
   const circleX = 125          // 🔧 调整这里：左侧圆圈的X坐标（增大向右移动）

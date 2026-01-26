@@ -530,10 +530,17 @@ export const useAnalysisStore = defineStore("analysis", {
                     });
 
                     // 处理 Crawler 输出，保存平台统计
-                    if (data.agent_name === "Crawler" && data.platform_stats) {
-                        this.platformStats = data.platform_stats;
-                        console.log("[AnalysisStore] 📊 平台统计已保存:", this.platformStats);
-                        this.saveResultsToSession();
+                    if (data.agent_name === "Crawler") {
+                        console.log("[AnalysisStore] 🔍 Crawler 数据检查:", {
+                            has_platform_stats: !!data.platform_stats,
+                            platform_stats: data.platform_stats,
+                            all_keys: Object.keys(data)
+                        });
+                        if (data.platform_stats) {
+                            this.platformStats = data.platform_stats;
+                            console.log("[AnalysisStore] 📊 平台统计已保存:", this.platformStats);
+                            this.saveResultsToSession();
+                        }
                     }
 
                     // 处理Analyst输出，解析洞察
