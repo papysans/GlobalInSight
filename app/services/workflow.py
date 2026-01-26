@@ -188,6 +188,7 @@ class GraphState(TypedDict):
     revision_count: int
     final_copy: str
     image_urls: List[str]
+    dataview_images: List[str]  # DataView卡片图片URLs
     output_file: Optional[str]
     messages: List[str] # Keep for SSE compatibility
     debate_history: List[str] # Track the debate process

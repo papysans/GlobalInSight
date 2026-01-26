@@ -267,6 +267,7 @@
             <label class="block text-xs font-semibold text-slate-500 mb-1">AI生图张数</label>
             <select v-model.number="volcengine.image_count" @change="saveVolcengineConfig"
               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-purple-500 bg-white">
+              <option :value="0">0 张（不生图）</option>
               <option :value="1">1 张</option>
               <option :value="2">2 张（默认）</option>
               <option :value="3">3 张</option>

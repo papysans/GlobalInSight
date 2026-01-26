@@ -28,6 +28,14 @@ const props = defineProps({
 })
 
 const generateImage = async () => {
+  console.log('[TrendChartCanvas] 🎨 开始生成趋势图')
+  console.log('[TrendChartCanvas] 📊 输入数据:', {
+    stage: props.data.stage,
+    growth: props.data.growth,
+    curve: props.data.curve,
+    theme: props.theme
+  })
+  
   const canvas = document.createElement('canvas')
   const WIDTH = 1080
   const HEIGHT = 1440
@@ -206,7 +214,9 @@ const generateImage = async () => {
   ctx.textAlign = 'center'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
-  return canvas.toDataURL('image/png')
+  const dataUrl = canvas.toDataURL('image/png')
+  console.log('[TrendChartCanvas] ✅ 趋势图生成完成，大小:', dataUrl.length, 'bytes')
+  return dataUrl
 }
 
 defineExpose({

@@ -55,8 +55,8 @@
       <!-- Home View: 舆情推演 -->
       <HomeView v-if="currentTab === 'home'" />
 
-      <!-- Data View: 数据洞察 -->
-      <DataView v-if="currentTab === 'data'" ref="dataViewRef" data-view="data" />
+      <!-- Data View: 数据洞察 (使用 v-show 保持组件挂载，以便接收事件) -->
+      <DataView v-show="currentTab === 'data'" ref="dataViewRef" data-view="data" />
 
       <!-- Arch View: 系统架构 -->
       <ArchView v-if="currentTab === 'arch'" />

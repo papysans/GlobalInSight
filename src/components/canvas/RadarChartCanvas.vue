@@ -23,6 +23,13 @@ const props = defineProps({
 })
 
 const generateImage = async () => {
+  console.log('[RadarChartCanvas] 🎨 开始生成雷达图')
+  console.log('[RadarChartCanvas] 📊 输入数据:', {
+    labels: props.data.labels,
+    dataPoints: props.data.datasets[0].data,
+    theme: props.theme
+  })
+  
   const canvas = document.createElement('canvas')
   const WIDTH = 1080
   const HEIGHT = 1440
@@ -68,6 +75,7 @@ const generateImage = async () => {
   
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
   
+  console.log('[RadarChartCanvas] 📈 创建 Chart.js 雷达图')
   const chartInstance = new Chart(chartCanvas.getContext('2d'), {
     type: 'radar',
     data: {
@@ -166,7 +174,9 @@ const generateImage = async () => {
   ctx.textAlign = 'center'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 60)
   
-  return canvas.toDataURL('image/png')
+  const dataUrl = canvas.toDataURL('image/png')
+  console.log('[RadarChartCanvas] ✅ 雷达图生成完成，大小:', dataUrl.length, 'bytes')
+  return dataUrl
 }
 
 defineExpose({

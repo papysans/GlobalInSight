@@ -440,12 +440,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useAnalysisStore } from '../stores/analysis'
 import { api } from '../api'
 import {
   Lock, LayoutGrid, ChevronRight, Edit3, Palette, Download,
-  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2, Radar, GitBranch, Sparkles
+  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2, Radar, GitBranch, Sparkles, BrainCircuit
 } from 'lucide-vue-next'
 import { Chart, registerables } from 'chart.js'
 import InsightCard from '../components/InsightCard.vue'
@@ -550,28 +550,52 @@ const vizOptions = [
 
 // 生成数据视图卡片图片（右侧三个可视化图表）
 const generateDataViewImages = async () => {
+  console.log('[DataView] 🎨 开始生成数据视图卡片图片')
+  console.log('[DataView] 📊 当前数据状态:', {
+    radarLabels: radarChartData.value.labels,
+    radarData: radarChartData.value.datasets[0].data,
+    timelineRounds: debateTimelineData.value.length,
+    trendStage: trendChartData.value.stage,
+    trendGrowth: trendChartData.value.growth,
+    trendCurve: trendChartData.value.curve
+  })
+  
   const images = []
   
   try {
     // 生成雷达图
     if (radarChartCanvasRef.value && radarChartData.value.labels.length > 0) {
+      console.log('[DataView] 📡 生成雷达图...')
       const img = await radarChartCanvasRef.value.generateImage()
       images.push(img)
+      console.log('[DataView] ✅ 雷达图已生成')
+    } else {
+      console.warn('[DataView] ⚠️ 雷达图数据为空，跳过')
     }
     
     // 生成辩论时间线
     if (debateTimelineCanvasRef.value && debateTimelineData.value.length > 0) {
+      console.log('[DataView] 🔄 生成辩论时间线...')
       const img = await debateTimelineCanvasRef.value.generateImage()
       images.push(img)
+      console.log('[DataView] ✅ 辩论时间线已生成')
+    } else {
+      console.warn('[DataView] ⚠️ 辩论时间线数据为空，跳过')
     }
     
     // 生成趋势图
     if (trendChartCanvasRef.value && trendChartData.value.curve.length > 0) {
+      console.log('[DataView] 📈 生成趋势图...')
       const img = await trendChartCanvasRef.value.generateImage()
       images.push(img)
+      console.log('[DataView] ✅ 趋势图已生成')
+    } else {
+      console.warn('[DataView] ⚠️ 趋势图数据为空，跳过')
     }
+    
+    console.log('[DataView] 🎉 所有卡片生成完成，总数:', images.length)
   } catch (error) {
-    console.error('生成数据视图图片失败:', error)
+    console.error('[DataView] ❌ 生成数据视图图片失败:', error)
   }
   
   return images
@@ -612,45 +636,87 @@ const testGenerateImages = async () => {
 
 // 加载 Mock 辩论数据（用于测试不同轮数）
 const loadMockDebateData = (rounds) => {
-  const mockTitles = [
-    '内存涨幅超黄金',
-    '存储全线飙价',
-    '内存暴涨高利疑云',
-    '内存疯涨超黄金',
-    '供应链危机加剧',
-    '市场垄断质疑',
-    '消费者权益受损',
-    '行业监管呼声'
+  console.log('[DataView] 🎭 加载 Mock 数据，轮数:', rounds)
+  
+  // 基于真实数据的 mock
+  const mockData = [
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 这一事件折射出全球公共卫生语境下，公众对未知烈性传染病的深层焦虑。无疫苗、高致死率的属性叠加跨境流动的风险，各国的监测举措既凸显防控必要性，也放大了信息传播中不确定性引发的恐慌，同时映射出大众对公共卫生体系应对能力的高度期待。
+TITLE: 尼帕病毒警戒升级
+SUB: 高致死病毒 筑牢防控防线
+SUMMARY: 这一事件折射出AI技术迭代引发的产业资源重构对大众消费市场的冲击`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 这一举措是公共卫生部门针对尼帕病毒高致死、无特效疗法的特性，结合境外疫情报告与输入风险做出的前置科学部署，既体现了防控的专业性与主动性，也需引导社交媒体信息传播回归事实边界，避免无依据的风险放大，平衡防控预警与公众理性认知的关系。
+TITLE: 尼帕病毒纳入监测
+SUB: 前置防控应对输入风险
+SUMMARY: 存储硬件集体涨价及厂商高利润率的争议，折射出AI需求迭代、行业周期波动`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 这一争议折射出公共卫生领域中，公众对防控响应节奏、信息透明度的深度关切。本土病例出现后才将病毒纳入监测目录的被动举措，触发了对公共卫生监测体系滞后性的质疑，也凸显出公众对本土传播风险、疫情细节知情权的核心诉求，信息不对称易加剧信任裂痕。
+TITLE: 监测定性引争议
+SUB: 本土风险与知情权诉求
+SUMMARY: 此次存储硬件价格暴涨，既叠加了AI产能转导致的消费级内存供销错配`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 这一事件折射出全球公共卫生领域对高致死未知病毒的高度警惕，社交媒体的即时传播放大了公众对无疫苗、无特效药病毒的恐慌情绪，各国主动将其纳入监测、强化入境防控的举措，既体现了前置化的风险应对思路，也反映出跨境防疫协作的迫切性。
+TITLE: 尼帕病毒防控升级
+SUB: 多国筑牢防疫预警屏障
+SUMMARY: 此次存储硬件价格暴涨，是AI技术迭代挤压消费级产能、行业周期性调整`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 供应链紧张导致价格持续上涨，消费者面临更高成本压力，市场集中度过高引发垄断担忧。
+TITLE: 供应链危机加剧
+SUB: 价格上涨压力增大
+SUMMARY: 供应链紧张导致价格持续上涨，消费者面临更高成本压力`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 市场集中度过高引发垄断担忧，监管部门开始关注，消费者权益保护成为焦点。
+TITLE: 市场垄断质疑
+SUB: 监管关注度提升
+SUMMARY: 市场集中度过高引发垄断担忧，监管部门开始关注`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 消费者权益保护成为焦点，呼吁加强市场监管，行业自律与政府监管双管齐下。
+TITLE: 消费者权益受损
+SUB: 呼吁加强监管
+SUMMARY: 消费者权益保护成为焦点，呼吁加强市场监管`
+    },
+    {
+      agent_name: 'Analyst',
+      step_content: `INSIGHT: 行业自律与政府监管双管齐下，维护市场秩序，保护消费者合法权益。
+TITLE: 行业监管呼声
+SUB: 双管齐下维护秩序
+SUMMARY: 行业自律与政府监管双管齐下，维护市场秩序`
+    }
   ]
   
-  const mockSummaries = [
-    '这一事件折射出AI技术迭代引发的产业资源重构对大众消费市场的冲击',
-    '存储硬件集体涨价及厂商高利润率的争议，折射出AI需求迭代、行业周期波动',
-    '此次存储硬件价格暴涨，既叠加了AI产能转导致的消费级内存供销错配',
-    '此次存储硬件价格暴涨，是AI技术迭代挤压消费级产能、行业周期性调整',
-    '供应链紧张导致价格持续上涨，消费者面临更高成本压力',
-    '市场集中度过高引发垄断担忧，监管部门开始关注',
-    '消费者权益保护成为焦点，呼吁加强市场监管',
-    '行业自律与政府监管双管齐下，维护市场秩序'
-  ]
+  // 只取指定轮数
+  const selectedData = mockData.slice(0, rounds)
   
-  const mockData = []
-  for (let i = 0; i < rounds; i++) {
-    mockData.push({
-      round: i + 1,
-      title: mockTitles[i] || `第${i + 1}轮观点`,
-      insight: `这是第${i + 1}轮辩论的详细内容，包含了对议题的深入分析和观点阐述。`,
-      summary: mockSummaries[i] || `第${i + 1}轮核心观点总结`
-    })
-  }
+  // 临时覆盖 store 中的日志数据
+  analysisStore.logs = selectedData
   
-  // 临时覆盖 store 中的辩论数据
-  analysisStore.result = {
-    ...analysisStore.result,
-    debate_rounds: mockData
-  }
+  // 设置选中的平台（用于雷达图）
+  analysisStore.selectedPlatforms = ['wb', 'bili', 'xhs', 'dy', 'ks', 'zhihu']
   
-  console.log(`已加载 ${rounds} 轮 Mock 数据`)
+  // 解锁数据
+  analysisStore.dataUnlocked = true
+  
+  console.log('[DataView] ✅ Mock 数据已加载:', {
+    rounds: selectedData.length,
+    platforms: analysisStore.selectedPlatforms,
+    radarData: radarChartData.value,
+    timelineData: debateTimelineData.value,
+    trendData: trendChartData.value
+  })
 }
 
 // 暴露给父组件使用
@@ -1281,32 +1347,81 @@ watch(() => analysisStore.insightSubtitle, (subtitle) => {
   }
 })
 
-onMounted(() => {
-  // 如果数据已解锁，初始化图表
-  if (analysisStore.dataUnlocked && dataSource.value === 'workflow') {
-    nextTick(() => {
-      initChart()
-    })
+// 数据验证函数
+const validateData = () => {
+  if (!radarChartCanvasRef.value || !debateTimelineCanvasRef.value || !trendChartCanvasRef.value) {
+    console.warn('[DataView] ⚠️ Canvas ref 未就绪')
+    return false
   }
+  if (radarChartData.value.labels.length === 0 || debateTimelineData.value.length === 0 || trendChartData.value.curve.length === 0) {
+    console.warn('[DataView] ⚠️ 数据未完整')
+    return false
+  }
+  return true
+}
+
+// 带重试的生成函数
+const generateWithRetry = async (maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    if (validateData()) {
+      return await generateDataViewImages()
+    }
+    if (i < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+  }
+  console.error('[DataView] ❌ 重试失败')
+  return []
+}
+
+onMounted(() => {
+  // 监听生成事件
+  const handleGenerateCards = async () => {
+    console.log('[DataView] 🎨 收到生成事件')
+    await nextTick()
+    
+    try {
+      const images = await generateWithRetry()
+      if (images.length > 0) {
+        analysisStore.setDataViewImages(images)
+        console.log('[DataView] ✅ 生成成功:', images.length, '张')
+      }
+    } catch (error) {
+      console.error('[DataView] ❌ 生成失败:', error)
+    }
+  }
+  
+  window.addEventListener('generate-dataview-cards', handleGenerateCards)
+  
+  onUnmounted(() => {
+    window.removeEventListener('generate-dataview-cards', handleGenerateCards)
+  })
+  
+  console.log('[DataView] 🚀 组件已挂载')
 })
+
 </script>
 
 <style scoped>
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 2px;
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 2px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }
 </style>

@@ -572,7 +572,7 @@ const currentDisplayIndex = ref(0) // 0: Title Card, 1+: AI Images
 const emojiPosition = ref('bottom-right') // top-left, top-right, bottom-left, bottom-right
 
 // 计算属性：根据编辑状态返回正确的图片列表
-// 如果正在编辑，使用用户选择和排序后的图片；否则使用原始图片
+// 如果正在编辑,使用用户选择和排序后的图片；否则使用原始图片
 const displayImages = computed(() => {
   // 构建完整图片数组：Title Card + DataView 卡片 + AI 生图
   const allImages = [
@@ -581,13 +581,27 @@ const displayImages = computed(() => {
     ...analysisStore.imageUrls // 4+: AI 生图
   ]
   
+  console.log('[HomeView] 📊 displayImages computed 执行:', {
+    titleCard: 1,
+    dataViewCount: analysisStore.dataViewImages.length,
+    dataViewImages: analysisStore.dataViewImages.map(img => img ? `${(img.length / 1024).toFixed(1)}KB` : 'null'),
+    aiImageCount: analysisStore.imageUrls.length,
+    totalImages: allImages.length,
+    isEditing: analysisStore.isEditing,
+    selectedIndicesCount: editableContent.value.selectedImageIndices.length,
+    imageOrderCount: editableContent.value.imageOrder.length
+  })
+  
   // 如果正在编辑或已保存编辑，使用编辑后的图片顺序
   if (analysisStore.isEditing || (editableContent.value.selectedImageIndices.length > 0 && editableContent.value.selectedImageIndices.length < allImages.length)) {
-    return editableContent.value.imageOrder
+    const result = editableContent.value.imageOrder
       .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
       .map(idx => allImages[idx])
+    console.log('[HomeView] 📋 使用编辑后的图片顺序，数量:', result.length)
+    return result
   }
   // 默认：标题卡 + DataView 卡片 + 所有 AI 图片
+  console.log('[HomeView] 📋 使用默认图片顺序，数量:', allImages.length)
   return allImages
 })
 
@@ -958,6 +972,10 @@ const handleStart = async () => {
   xhsPreview.value = { title: '', content: '' }
   maxStepIndex.value = -1
   maxProgress.value = 0
+  
+  // 清空旧的 DataView 图片（重要！）
+  analysisStore.setDataViewImages([])
+  console.log('[HomeView] 🧹 已清空旧的 DataView 图片')
   
   // 随机化 emoji 位置
   randomizeEmojiPosition()
@@ -1333,6 +1351,12 @@ const publishToXhs = async () => {
   const titleToPublish = editableContent.value.title || analysisStore.finalCopy.title
   const bodyToPublish = editableContent.value.body || analysisStore.finalCopy.body
   
+  console.log('[Publish] 📤 准备发布到小红书')
+  console.log('[Publish] 📊 当前 DataView 图片状态:', {
+    count: analysisStore.dataViewImages.length,
+    sizes: analysisStore.dataViewImages.map(img => `${(img.length / 1024).toFixed(1)}KB`)
+  })
+  
   if (!titleToPublish || !bodyToPublish) return
   
   // 构建完整图片数组：Title Card + DataView 卡片 + AI 生图
@@ -1341,6 +1365,13 @@ const publishToXhs = async () => {
     ...analysisStore.dataViewImages, // 1-3: DataView 卡片（如果有）
     ...analysisStore.imageUrls // 4+: AI 生图
   ]
+  
+  console.log('[Publish] 🖼️ 完整图片数组:', {
+    total: allImages.length,
+    titleCard: 1,
+    dataViewCards: analysisStore.dataViewImages.length,
+    aiImages: analysisStore.imageUrls.length
+  })
   
   const orderedIndices = editableContent.value.imageOrder
     .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
@@ -1376,8 +1407,13 @@ const publishToXhs = async () => {
         }
       } else {
         // 添加其他图片（DataView 卡片或 AI 生图）
-        allImagesToPublish.push(allImages[idx])
-        console.log('[Publish] ✅ 图片已添加到位置', allImagesToPublish.length - 1, '原始索引:', idx)
+        const imgUrl = allImages[idx]
+        if (imgUrl && typeof imgUrl === 'string') {
+          allImagesToPublish.push(imgUrl)
+          console.log('[Publish] ✅ 图片已添加到位置', allImagesToPublish.length - 1, '原始索引:', idx)
+        } else {
+          console.warn('[Publish] ⚠️ 跳过无效图片，索引:', idx, '值:', imgUrl)
+        }
       }
     }
     

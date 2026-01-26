@@ -258,7 +258,8 @@ async def analyze_news(request: NewsRequest):
                         agent_name=display_name,
                         step_content=content,
                         status="thinking",
-                        image_urls=state_update.get("image_urls")
+                        image_urls=state_update.get("image_urls"),
+                        dataview_images=state_update.get("dataview_images")
                     )
                     
                     # Yield SSE format

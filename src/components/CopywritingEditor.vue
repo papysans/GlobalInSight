@@ -241,15 +241,43 @@ watch(isEditing, (newVal) => {
   if (newVal) {
     localTitle.value = editableContent.value.title
     localBody.value = editableContent.value.body
-    localSelectedIndices.value = [...editableContent.value.selectedImageIndices]
-    localImageOrder.value = [...editableContent.value.imageOrder]
+    
+    // 计算当前实际的图片总数
+    const dataViewCount = analysisStore.dataViewImages?.length || 0
+    const aiImageCount = imageUrls.value?.length || 0
+    const totalImages = 1 + dataViewCount + aiImageCount // Title Card + DataView + AI
+    
+    // 验证并过滤 selectedImageIndices，确保索引在有效范围内
+    const rawSelectedIndices = editableContent.value.selectedImageIndices || []
+    const validSelectedIndices = rawSelectedIndices.filter(idx => idx >= 0 && idx < totalImages)
+    
+    // 验证并过滤 imageOrder，确保索引在有效范围内
+    const rawImageOrder = editableContent.value.imageOrder || []
+    const validImageOrder = rawImageOrder.filter(idx => idx >= 0 && idx < totalImages)
+    
+    // 如果过滤后为空，使用默认值（全选所有图片）
+    if (validSelectedIndices.length === 0) {
+      localSelectedIndices.value = Array.from({ length: totalImages }, (_, i) => i)
+    } else {
+      localSelectedIndices.value = validSelectedIndices
+    }
+    
+    if (validImageOrder.length === 0) {
+      localImageOrder.value = Array.from({ length: totalImages }, (_, i) => i)
+    } else {
+      localImageOrder.value = validImageOrder
+    }
     
     console.log('[CopywritingEditor] 编辑模式已启动:', {
       title: localTitle.value,
       bodyLength: localBody.value?.length,
-      selectedIndices: localSelectedIndices.value,
-      imageOrder: localImageOrder.value,
-      imageUrlsCount: imageUrls.value.length
+      totalImages,
+      dataViewCount,
+      aiImageCount,
+      rawSelectedIndices,
+      validSelectedIndices: localSelectedIndices.value,
+      rawImageOrder,
+      validImageOrder: localImageOrder.value
     })
   }
 }, { immediate: true })
@@ -296,9 +324,12 @@ const allImages = computed(() => {
 // 排序后的图片（用于拖拽）
 const sortedImages = computed({
   get() {
-    const result = localImageOrder.value.map(idx => allImages.value[idx])
+    // 过滤掉无效索引（超出 allImages 范围的索引）
+    const validOrder = localImageOrder.value.filter(idx => idx >= 0 && idx < allImages.value.length)
+    const result = validOrder.map(idx => allImages.value[idx]).filter(img => img !== undefined)
     console.log('[CopywritingEditor] sortedImages get:', {
       localImageOrder: localImageOrder.value,
+      validOrder,
       allImagesCount: allImages.value.length,
       resultCount: result.length,
       result: result.map(img => ({ type: img?.type, label: img?.label, index: img?.originalIndex }))

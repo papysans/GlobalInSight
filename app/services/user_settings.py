@@ -52,10 +52,12 @@ def get_image_generation_count() -> int:
     """
     Get the number of images to generate.
     Returns the user-configured count or default (2).
+    Supports 0 (disabled) to 9 images.
     """
     volc = get_volcengine_settings()
     count = volc.get("image_count")
-    if isinstance(count, int) and 1 <= count <= 9:
+    # 支持 0（禁用生图）到 9 张
+    if isinstance(count, int) and 0 <= count <= 9:
         return count
     return 2  # 默认生成2张图片
 

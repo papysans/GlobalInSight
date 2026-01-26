@@ -67,6 +67,16 @@ const calculateLayout = (roundCount) => {
 }
 
 const generateImage = async () => {
+  console.log('[DebateTimelineCanvas] 🎨 开始生成辩论时间线')
+  console.log('[DebateTimelineCanvas] 📊 输入数据:', {
+    roundCount: props.timeline.length,
+    timeline: props.timeline.map(t => ({
+      round: t.round,
+      title: t.title,
+      summaryLength: t.summary?.length || 0
+    }))
+  })
+  
   const canvas = document.createElement('canvas')
   const WIDTH = 1080
   const HEIGHT = 1440
@@ -221,7 +231,9 @@ const generateImage = async () => {
   ctx.textAlign = 'center'
   ctx.fillText('@观潮GlobalInSight · AI舆情洞察', WIDTH / 2, HEIGHT - 40)
   
-  return canvas.toDataURL('image/png')
+  const dataUrl = canvas.toDataURL('image/png')
+  console.log('[DebateTimelineCanvas] ✅ 辩论时间线生成完成，大小:', dataUrl.length, 'bytes')
+  return dataUrl
 }
 
 // 辅助函数：文本换行

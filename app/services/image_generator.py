@@ -124,10 +124,14 @@ class ImageGeneratorService:
 
     async def generate_image_prompts(self, content: str, insight: str = "") -> List[str]:
         """Generate multiple single-image prompts based on the content using LLM."""
-        llm = get_agent_llm("writer") # Use writer's LLM or a dedicated one
-        
         # 获取用户配置的生图张数
         image_count = get_image_generation_count()
+        
+        # 如果配置为 0 张，直接返回空列表
+        if image_count == 0:
+            return []
+        
+        llm = get_agent_llm("writer") # Use writer's LLM or a dedicated one
         
         user_prompt = f"请根据以下文案生成 {image_count} 条AI绘画提示词：\n\n【文案内容】：\n{content}"
         if insight:
@@ -240,6 +244,14 @@ class ImageGeneratorService:
 
     async def generate_images(self, content: str, insight: str = "") -> List[str]:
         """Full workflow: generate N prompts -> submit N tasks -> aggregate results."""
+        # 获取用户配置的生图张数
+        image_count = get_image_generation_count()
+        
+        # 如果配置为 0 张，直接跳过生图
+        if image_count == 0:
+            print("[IMAGE] Image generation disabled (image_count=0), skipping.")
+            return []
+        
         if self.visual_service is None:
             print("[IMAGE] volcengine sdk not installed; skip image generation.")
             return []
@@ -248,8 +260,6 @@ class ImageGeneratorService:
             print("[IMAGE] Volcengine keys not configured (env or user-settings).")
             return []
         
-        # 获取用户配置的生图张数
-        image_count = get_image_generation_count()
         print(f"[IMAGE] Generating prompts (Target: {image_count})...")
         prompts = await self.generate_image_prompts(content, insight=insight)
         if not prompts:

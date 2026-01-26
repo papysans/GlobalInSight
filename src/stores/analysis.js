@@ -128,12 +128,37 @@ export const useAnalysisStore = defineStore("analysis", {
                 };
             }
 
-            // 为每个平台生成一个基础热度值（可以后续从实际数据中获取）
+            // 基于实际数据计算平台热度
+            // 1. 统计每个平台在日志中被提及的次数
+            const platformMentions = {};
+            platforms.forEach(p => {
+                platformMentions[p] = 0;
+            });
+            
+            // 遍历所有日志，统计平台提及次数
+            state.logs.forEach(log => {
+                const content = (log.step_content || '').toLowerCase();
+                platforms.forEach(p => {
+                    const platformName = (platformNameMap[p] || p).toLowerCase();
+                    // 统计平台名称出现次数
+                    const regex = new RegExp(platformName, 'gi');
+                    const matches = content.match(regex);
+                    if (matches) {
+                        platformMentions[p] += matches.length;
+                    }
+                });
+            });
+            
+            // 2. 计算热度值（归一化到 60-100 范围）
+            const maxMentions = Math.max(...Object.values(platformMentions), 1);
             const platformData = platforms.map(p => {
                 const platformName = platformNameMap[p] || p;
-                // 生成一个基于平台的伪随机值（60-95之间）
-                const baseValue = 60 + (platformName.charCodeAt(0) % 35);
-                return { name: platformName, value: baseValue };
+                const mentions = platformMentions[p];
+                // 归一化：至少60分，最多100分
+                const normalizedValue = mentions > 0 
+                    ? Math.round(60 + (mentions / maxMentions) * 40)
+                    : 60;
+                return { name: platformName, value: normalizedValue };
             });
 
             return {
@@ -186,24 +211,77 @@ export const useAnalysisStore = defineStore("analysis", {
 
         // 趋势图数据
         trendChartData: (state) => {
-            // 基于分析状态生成趋势数据
-            const debateRounds = state.logs.filter(log => log.agent_name === 'Analyst').length;
+            // 基于实际辩论数据生成趋势曲线
+            const analystLogs = state.logs.filter(log => log.agent_name === 'Analyst');
+            const debateRounds = analystLogs.length;
             
-            // 根据辩论轮次判断阶段
+            if (debateRounds === 0) {
+                return {
+                    stage: '待分析',
+                    growth: 0,
+                    curve: [0, 0, 0, 0, 0, 0, 0]
+                };
+            }
+            
+            // 1. 分析每轮辩论的"热度"（基于内容长度和关键词密度）
+            const heatKeywords = ['热议', '关注', '讨论', '争议', '热度', '爆发', '火爆', '刷屏'];
+            const roundHeat = analystLogs.map(log => {
+                const content = log.step_content || '';
+                const contentLength = content.length;
+                
+                // 统计热度关键词出现次数
+                let keywordCount = 0;
+                heatKeywords.forEach(keyword => {
+                    const regex = new RegExp(keyword, 'gi');
+                    const matches = content.match(regex);
+                    if (matches) keywordCount += matches.length;
+                });
+                
+                // 综合评分：内容长度 + 关键词密度
+                const lengthScore = Math.min(contentLength / 10, 50); // 最多50分
+                const keywordScore = keywordCount * 10; // 每个关键词10分
+                return Math.min(lengthScore + keywordScore, 100);
+            });
+            
+            // 2. 生成7点趋势曲线（插值）
+            let curve = [];
+            if (debateRounds === 1) {
+                // 单轮：模拟爆发
+                const heat = roundHeat[0];
+                curve = [heat * 0.3, heat * 0.5, heat * 0.7, heat, heat * 0.95, heat * 0.9, heat * 0.85];
+            } else if (debateRounds === 2) {
+                // 两轮：从第一轮到第二轮
+                const [h1, h2] = roundHeat;
+                curve = [h1 * 0.5, h1, h1 * 1.1, (h1 + h2) / 2, h2, h2 * 0.95, h2 * 0.9];
+            } else {
+                // 多轮：均匀分布
+                curve = Array(7).fill(0).map((_, i) => {
+                    const progress = i / 6;
+                    const index = Math.floor(progress * (debateRounds - 1));
+                    const nextIndex = Math.min(index + 1, debateRounds - 1);
+                    const localProgress = (progress * (debateRounds - 1)) - index;
+                    
+                    // 线性插值
+                    return Math.round(
+                        roundHeat[index] * (1 - localProgress) + 
+                        roundHeat[nextIndex] * localProgress
+                    );
+                });
+            }
+            
+            // 3. 判断阶段和增速
+            const firstHeat = curve[0];
+            const lastHeat = curve[curve.length - 1];
+            const avgHeat = curve.reduce((a, b) => a + b, 0) / curve.length;
+            const growth = Math.round(((lastHeat - firstHeat) / Math.max(firstHeat, 1)) * 100);
+            
             let stage = '扩散期';
-            let growth = 50;
-            let curve = [40, 55, 70, 80, 90, 95, 92];
-            
-            if (debateRounds <= 2) {
-                // 早期：爆发期
+            if (growth > 100) {
                 stage = '爆发期';
-                growth = 999;
-                curve = [10, 30, 60, 85, 95, 100, 98];
-            } else if (debateRounds > 4) {
-                // 后期：回落期
+            } else if (growth < -20) {
                 stage = '回落期';
-                growth = -20;
-                curve = [80, 75, 65, 50, 35, 25, 20];
+            } else if (avgHeat > 80) {
+                stage = '高热期';
             }
             
             return {
@@ -254,9 +332,22 @@ export const useAnalysisStore = defineStore("analysis", {
 
         // 设置数据视图图片
         setDataViewImages(images) {
-            this.dataViewImages = images;
+            console.log('[AnalysisStore] 🔵 setDataViewImages 被调用:', {
+                imagesCount: images.length,
+                imageSizes: images.map(img => `${(img.length / 1024).toFixed(1)}KB`),
+                currentDataViewImages: this.dataViewImages.length
+            });
+            // 使用 Vue 的响应式方式更新数组（确保触发响应式更新）
+            this.dataViewImages = [...images];
+            console.log('[AnalysisStore] 🟢 dataViewImages 已更新:', this.dataViewImages.length, '张');
             this.saveResultsToSession();
-            console.log('[AnalysisStore] 数据视图图片已保存:', images.length, '张');
+            console.log('[AnalysisStore] 💾 已调用 saveResultsToSession');
+            
+            // 重新初始化可编辑内容（包含新的 DataView 图片）
+            if (this.finalCopy.title || this.finalCopy.body) {
+                this.initEditableContent();
+                console.log('[AnalysisStore] 🔄 已重新初始化 editableContent（包含 DataView 图片）');
+            }
         },
 
         // 编辑相关 actions
@@ -316,17 +407,26 @@ export const useAnalysisStore = defineStore("analysis", {
 
         // 初始化可编辑内容（当新文案生成时调用）
         initEditableContent() {
-            const totalImages = this.imageUrls.length + 1; // +1 for title card
+            // 计算总图片数：Title Card + DataView 卡片 + AI 生图
+            const totalImages = 1 + this.dataViewImages.length + this.imageUrls.length;
             this.editableContent = {
                 title: this.finalCopy.title,
                 body: this.finalCopy.body,
-                selectedImageIndices: Array.from({ length: totalImages }, (_, i) => i), // 默认全选
+                selectedImageIndices: Array.from({ length: totalImages }, (_, i) => i), // 默认全选所有图片
                 imageOrder: Array.from({ length: totalImages }, (_, i) => i), // 默认顺序
             };
             this.saveEditDraft();
+            console.log('[AnalysisStore] initEditableContent - 默认全选所有图片:', {
+                totalImages,
+                dataViewCount: this.dataViewImages.length,
+                aiImageCount: this.imageUrls.length,
+                selectedImageIndices: this.editableContent.selectedImageIndices,
+                imageOrder: this.editableContent.imageOrder
+            });
         },
 
         async startAnalysis(payload) {
+            // 🧹 彻底清除所有旧数据（包括缓存）
             this.logs = [];
             this.finalCopy = { title: "", body: "" };
             this.insight = "";
@@ -335,10 +435,39 @@ export const useAnalysisStore = defineStore("analysis", {
             this.contrastData = null;
             this.dataUnlocked = false;
             this.imageUrls = [];
+            this.dataViewImages = []; // 清空旧的 DataView 图片
             this.titleEmoji = "🤔";
             this.titleTheme = "cool";
             this.isLoading = true;
             this.error = null;
+            
+            // 🔴 关键：清除编辑草稿缓存（防止旧内容污染新分析）
+            this.editableContent = {
+                title: "",
+                body: "",
+                selectedImageIndices: [0],
+                imageOrder: [0],
+            };
+            this.originalContent = null;
+            this.isEditing = false;
+            
+            // 清除 localStorage 中的编辑草稿
+            try {
+                localStorage.removeItem('xhs_edit_draft');
+                console.log('[AnalysisStore] 🗑️ 已清除 localStorage 编辑草稿');
+            } catch (e) {
+                console.error('Failed to clear edit draft:', e);
+            }
+            
+            // 清除 sessionStorage 中的旧分析结果
+            try {
+                sessionStorage.removeItem('grandchart_analysis_results');
+                console.log('[AnalysisStore] 🗑️ 已清除 sessionStorage 分析结果缓存');
+            } catch (e) {
+                console.error('Failed to clear session results:', e);
+            }
+            
+            console.log('[AnalysisStore] 🧹 已清空所有旧数据，包括 DataView 图片和所有缓存');
 
             // 确保从 localStorage 加载最新的平台选择（防止时序问题）
             const saved = localStorage.getItem("grandchart_selected_platforms");
@@ -524,6 +653,13 @@ export const useAnalysisStore = defineStore("analysis", {
                         
                         this.saveResultsToSession(); // Persist after Writer output
                         console.log('[AnalysisStore] 💾 已保存到 sessionStorage');
+                        
+                        // 触发 DataView 卡片生成
+                        console.log('[AnalysisStore] 📊 Writer 完成，触发 DataView 卡片生成');
+                        setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('generate-dataview-cards'));
+                            console.log('[AnalysisStore] ✅ 已触发 generate-dataview-cards 事件');
+                        }, 500);
                     }
 
                     // 处理 Image Generator 输出
@@ -546,6 +682,26 @@ export const useAnalysisStore = defineStore("analysis", {
                         });
                         
                         this.saveResultsToSession(); // Persist after Image Generator output
+                    }
+
+                    // 处理 DataView Generator 输出
+                    if (
+                        data.agent_name === "DataView Generator" &&
+                        data.dataview_images
+                    ) {
+                        console.log(
+                            "[AnalysisStore] 🖼️ 收到DataView卡片:",
+                            data.dataview_images
+                        );
+                        this.dataViewImages = data.dataview_images;
+                        
+                        // 重新初始化可编辑内容（包含新的DataView卡片）
+                        if (this.finalCopy.title || this.finalCopy.body) {
+                            this.initEditableContent();
+                            console.log('[AnalysisStore] ✅ editableContent 已重新初始化（包含DataView卡片）');
+                        }
+                        
+                        this.saveResultsToSession();
                     }
 
                     // 如果完成，解锁数据
