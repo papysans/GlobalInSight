@@ -1332,9 +1332,18 @@ const debugPreviewTheme = () => {
     const emojis = ['🤔', '🚀', '💡', '🔥', '✨', '🎉', '🤖', '👀', '🌈', '🎨']
     analysisStore.titleEmoji = emojis[Math.floor(Math.random() * emojis.length)]
     
-    // 3. Random Theme
-    const themes = ['warm', 'cool', 'alert', 'dark']
-    analysisStore.titleTheme = themes[Math.floor(Math.random() * themes.length)]
+    // 3. Random Theme (fallback - 仅当 LLM 未返回主题时使用)
+    if (!analysisStore.titleTheme || analysisStore.titleTheme === 'cool') {
+      const themes = [
+        'warm', 'peach', 'sunset',           // 暖色系
+        'cool', 'ocean', 'mint', 'sky',      // 冷色系
+        'lavender', 'grape',                  // 紫色系
+        'forest', 'lime',                     // 绿色系
+        'cream', 'dark',                      // 特殊色
+        'alert'                               // 警示色（仅1个，概率约7%）
+      ]
+      analysisStore.titleTheme = themes[Math.floor(Math.random() * themes.length)]
+    }
     
     // 4. Random Position
     randomizeEmojiPosition()

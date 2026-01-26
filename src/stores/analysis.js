@@ -52,7 +52,7 @@ export const useAnalysisStore = defineStore("analysis", {
             imageUrls: cachedResults?.imageUrls || [], // 生成的配图 URL
             dataViewImages: cachedResults?.dataViewImages || [], // 新增：数据视图卡片图片
             titleEmoji: cachedResults?.titleEmoji || "🤔", // Title Card emoji (default)
-            titleTheme: cachedResults?.titleTheme || "cool", // Title Card color theme: warm/cool/alert/dark
+            titleTheme: cachedResults?.titleTheme || "cool", // Title Card color theme: warm/peach/sunset/cool/ocean/mint/sky/lavender/grape/forest/lime/alert/dark/cream
             platformStats: cachedResults?.platformStats || null, // 平台爬取统计 {platform_code: count}
             
             // 编辑状态
@@ -626,7 +626,7 @@ export const useAnalysisStore = defineStore("analysis", {
                             }
 
                             // 解析 THEME
-                            const themeMatch = cleanContent.match(/THEME:\s*(warm|cool|alert|dark)/i);
+                            const themeMatch = cleanContent.match(/THEME:\s*(warm|peach|sunset|cool|ocean|mint|sky|lavender|grape|forest|lime|alert|dark|cream)/i);
                             if (themeMatch && themeMatch[1]) {
                                 this.titleTheme = themeMatch[1].toLowerCase();
                                 console.log('[AnalysisStore] 🎨 解析到 Theme:', this.titleTheme);

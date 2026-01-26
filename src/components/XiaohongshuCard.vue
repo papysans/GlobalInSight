@@ -39,17 +39,55 @@ defineEmits(['emoji-click'])
 // --- Styles & Constants ---
 
 const themeStyles = {
+  // 暖色系
   warm: { bg: 'bg-gradient-to-br from-orange-50 to-amber-100', textColor: 'text-amber-900' },
+  peach: { bg: 'bg-gradient-to-br from-orange-100 to-pink-100', textColor: 'text-orange-900' },
+  sunset: { bg: 'bg-gradient-to-br from-amber-100 to-rose-100', textColor: 'text-amber-900' },
+  
+  // 冷色系
   cool: { bg: 'bg-gradient-to-br from-indigo-50 to-cyan-100', textColor: 'text-slate-800' },
+  ocean: { bg: 'bg-gradient-to-br from-blue-100 to-teal-100', textColor: 'text-blue-900' },
+  mint: { bg: 'bg-gradient-to-br from-emerald-50 to-teal-100', textColor: 'text-emerald-900' },
+  sky: { bg: 'bg-gradient-to-br from-sky-100 to-blue-100', textColor: 'text-sky-900' },
+  
+  // 紫色系
+  lavender: { bg: 'bg-gradient-to-br from-purple-50 to-violet-100', textColor: 'text-purple-900' },
+  grape: { bg: 'bg-gradient-to-br from-violet-100 to-fuchsia-100', textColor: 'text-violet-900' },
+  
+  // 绿色系
+  forest: { bg: 'bg-gradient-to-br from-green-50 to-emerald-100', textColor: 'text-green-900' },
+  lime: { bg: 'bg-gradient-to-br from-lime-50 to-green-100', textColor: 'text-lime-900' },
+  
+  // 特殊色
   alert: { bg: 'bg-gradient-to-br from-red-100 to-rose-200', textColor: 'text-red-900' },
-  dark: { bg: 'bg-gradient-to-br from-slate-800 to-slate-900', textColor: 'text-white' }
+  dark: { bg: 'bg-gradient-to-br from-slate-800 to-slate-900', textColor: 'text-white' },
+  cream: { bg: 'bg-gradient-to-br from-stone-50 to-amber-50', textColor: 'text-stone-800' }
 }
 
 const themeColorMap = {
+  // 暖色系
   warm: { gradientStart: '#fff7ed', gradientEnd: '#fef3c7', textColor: '#78350f' },
+  peach: { gradientStart: '#ffedd5', gradientEnd: '#fce7f3', textColor: '#7c2d12' },
+  sunset: { gradientStart: '#fef3c7', gradientEnd: '#ffe4e6', textColor: '#78350f' },
+  
+  // 冷色系
   cool: { gradientStart: '#eef2ff', gradientEnd: '#cffafe', textColor: '#1e293b' },
+  ocean: { gradientStart: '#dbeafe', gradientEnd: '#ccfbf1', textColor: '#1e3a8a' },
+  mint: { gradientStart: '#ecfdf5', gradientEnd: '#ccfbf1', textColor: '#064e3b' },
+  sky: { gradientStart: '#e0f2fe', gradientEnd: '#dbeafe', textColor: '#0c4a6e' },
+  
+  // 紫色系
+  lavender: { gradientStart: '#faf5ff', gradientEnd: '#ede9fe', textColor: '#581c87' },
+  grape: { gradientStart: '#ede9fe', gradientEnd: '#fae8ff', textColor: '#5b21b6' },
+  
+  // 绿色系
+  forest: { gradientStart: '#f0fdf4', gradientEnd: '#d1fae5', textColor: '#14532d' },
+  lime: { gradientStart: '#f7fee7', gradientEnd: '#dcfce7', textColor: '#365314' },
+  
+  // 特殊色
   alert: { gradientStart: '#fee2e2', gradientEnd: '#fecdd3', textColor: '#7f1d1d' },
-  dark: { gradientStart: '#1e293b', gradientEnd: '#0f172a', textColor: '#ffffff' }
+  dark: { gradientStart: '#1e293b', gradientEnd: '#0f172a', textColor: '#ffffff' },
+  cream: { gradientStart: '#fafaf9', gradientEnd: '#fffbeb', textColor: '#292524' }
 }
 
 const dynamicStyle = computed(() => themeStyles[props.theme] || themeStyles.cool)

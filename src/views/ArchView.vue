@@ -1,271 +1,232 @@
 <template>
-  <div class="view-section animate-fade-in py-12 px-4">
+  <div class="view-section animate-fade-in py-12 px-4 overflow-hidden">
     <div class="max-w-7xl mx-auto">
-      <div class="text-center mb-12">
-        <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4">系统技术架构</h2>
-        <p class="text-slate-500 text-lg">基于多智能体（Multi-Agent）协作的舆情洞察与内容生成系统</p>
+      <!-- 标题区域 -->
+      <div class="text-center mb-12 relative">
+        <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+          <Network class="w-96 h-96 text-blue-600 animate-pulse-slow" />
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4 relative">系统技术架构</h2>
+        <p class="text-slate-500 text-lg relative">Multi-Agent Debate Framework · LangGraph Orchestration</p>
       </div>
 
-      <!-- 整体架构流程图 -->
-      <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-xl border border-blue-100 p-8 md:p-12 mb-8">
-        <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Network class="w-6 h-6 text-blue-600" />
-          系统架构总览
+      <!-- 动态数据流架构图 -->
+      <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 md:p-12 mb-8 relative overflow-hidden">
+        <!-- 背景动画网格 -->
+        <div class="absolute inset-0 opacity-10">
+          <div class="grid-bg"></div>
+        </div>
+        
+        <!-- 流动粒子效果 -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <div class="particle particle-1"></div>
+          <div class="particle particle-2"></div>
+          <div class="particle particle-3"></div>
+        </div>
+
+        <h3 class="text-xl font-bold text-white mb-8 flex items-center gap-2 relative z-10">
+          <Workflow class="w-6 h-6 text-blue-400" />
+          Multi-Agent Debate 数据流
         </h3>
-        <div class="grid md:grid-cols-4 gap-6">
-          <!-- 数据收集层 -->
-          <div class="bg-white rounded-xl p-5 shadow-md border-2 border-blue-200">
-            <div class="flex items-center gap-2 mb-3">
-              <Database class="w-5 h-5 text-blue-600" />
-              <h4 class="font-bold text-blue-700">数据收集层</h4>
-            </div>
-            <ul class="text-sm text-slate-600 space-y-2">
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>TopHub Collector<br/>（8个国内平台）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>HN Collector<br/>（Hacker News）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>缓存机制<br/>（30分钟TTL）</span>
-              </li>
-            </ul>
-          </div>
 
-          <!-- 数据处理层 -->
-          <div class="bg-white rounded-xl p-5 shadow-md border-2 border-purple-200">
-            <div class="flex items-center gap-2 mb-3">
-              <Cpu class="w-5 h-5 text-purple-600" />
-              <h4 class="font-bold text-purple-700">数据处理层</h4>
+        <!-- 横向流程图 -->
+        <div class="relative z-10">
+          <div class="flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-2">
+            <!-- 数据源 -->
+            <div class="arch-node bg-gradient-to-br from-blue-600 to-blue-700 w-full lg:w-44">
+              <Database class="w-6 h-6 text-blue-200 mb-2" />
+              <div class="text-sm font-bold text-white">数据采集层</div>
+              <div class="text-xs text-blue-200 mt-1">TopHub · HN · MediaCrawler</div>
             </div>
-            <ul class="text-sm text-slate-600 space-y-2">
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>跨平台对齐聚类</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>历史快照分析</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>增长/新颖性信号</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>前端关键词分类</span>
-              </li>
-            </ul>
-          </div>
 
-          <!-- Agent智能体层 -->
-          <div class="bg-white rounded-xl p-5 shadow-md border-2 border-green-200">
-            <div class="flex items-center gap-2 mb-3">
-              <BrainCircuit class="w-5 h-5 text-green-600" />
-              <h4 class="font-bold text-green-700">Agent智能体层</h4>
-            </div>
-            <ul class="text-sm text-slate-600 space-y-2">
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>Reporter（事实提取）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>Analyst（舆情分析）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>Debater（智能辩论）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>Writer（文案生成）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>HotNews Interpreter<br/>（演化解读）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>Translator（查询构建）</span>
-              </li>
-            </ul>
-          </div>
+            <ArrowRight class="hidden lg:block w-8 h-8 text-blue-400 animate-pulse flex-shrink-0" />
+            <ArrowDown class="lg:hidden w-8 h-8 text-blue-400 animate-pulse flex-shrink-0" />
 
-          <!-- 前端交互层 -->
-          <div class="bg-white rounded-xl p-5 shadow-md border-2 border-orange-200">
-            <div class="flex items-center gap-2 mb-3">
-              <Layout class="w-5 h-5 text-orange-600" />
-              <h4 class="font-bold text-orange-700">前端交互层</h4>
+            <!-- 处理层 -->
+            <div class="arch-node bg-gradient-to-br from-purple-600 to-purple-700 w-full lg:w-44">
+              <Cpu class="w-6 h-6 text-purple-200 mb-2" />
+              <div class="text-sm font-bold text-white">智能处理层</div>
+              <div class="text-xs text-purple-200 mt-1">对齐聚类 · 信号分析</div>
             </div>
-            <ul class="text-sm text-slate-600 space-y-2">
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>热榜展示<br/>（实时刷新）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>关键词分类<br/>（300+关键词）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>演化解读卡片<br/>（按需LLM调用）</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <div class="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                <span>舆情推演工作流</span>
-              </li>
-            </ul>
+
+            <ArrowRight class="hidden lg:block w-8 h-8 text-purple-400 animate-pulse flex-shrink-0" />
+            <ArrowDown class="lg:hidden w-8 h-8 text-purple-400 animate-pulse flex-shrink-0" />
+
+            <!-- Agent层 - 核心 -->
+            <div class="arch-node-core bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 w-full lg:w-56 ring-2 ring-emerald-400/50 ring-offset-2 ring-offset-slate-900">
+              <BrainCircuit class="w-8 h-8 text-white mb-2 animate-pulse" />
+              <div class="text-base font-bold text-white">Multi-Agent Core</div>
+              <div class="text-xs text-emerald-100 mt-1">Reporter → Analyst → Debater → Writer</div>
+              <div class="mt-2 flex gap-1 justify-center">
+                <span class="px-1.5 py-0.5 bg-white/20 rounded text-[10px] text-white">LangGraph</span>
+                <span class="px-1.5 py-0.5 bg-white/20 rounded text-[10px] text-white">SSE</span>
+              </div>
+            </div>
+
+            <ArrowRight class="hidden lg:block w-8 h-8 text-emerald-400 animate-pulse flex-shrink-0" />
+            <ArrowDown class="lg:hidden w-8 h-8 text-emerald-400 animate-pulse flex-shrink-0" />
+
+            <!-- 生成层 -->
+            <div class="arch-node bg-gradient-to-br from-orange-600 to-orange-700 w-full lg:w-44">
+              <Sparkles class="w-6 h-6 text-orange-200 mb-2" />
+              <div class="text-sm font-bold text-white">内容生成层</div>
+              <div class="text-xs text-orange-200 mt-1">文案 · 图片 · Canvas</div>
+            </div>
+
+            <ArrowRight class="hidden lg:block w-8 h-8 text-orange-400 animate-pulse flex-shrink-0" />
+            <ArrowDown class="lg:hidden w-8 h-8 text-orange-400 animate-pulse flex-shrink-0" />
+
+            <!-- 发布层 -->
+            <div class="arch-node bg-gradient-to-br from-pink-600 to-rose-600 w-full lg:w-44">
+              <Send class="w-6 h-6 text-pink-200 mb-2" />
+              <div class="text-sm font-bold text-white">自动发布层</div>
+              <div class="text-xs text-pink-200 mt-1">小红书 MCP</div>
+            </div>
           </div>
+        </div>
+
+        <!-- 底部技术标签 -->
+        <div class="mt-8 flex flex-wrap justify-center gap-2 relative z-10">
+          <span class="tech-tag">FastAPI</span>
+          <span class="tech-tag">LangChain</span>
+          <span class="tech-tag">LangGraph</span>
+          <span class="tech-tag">Vue 3</span>
+          <span class="tech-tag">Pinia</span>
+          <span class="tech-tag">Canvas API</span>
+          <span class="tech-tag">SSE</span>
+          <span class="tech-tag">火山引擎</span>
         </div>
       </div>
 
-      <!-- 详细架构说明 -->
-      <div class="grid md:grid-cols-2 gap-6 mb-8">
-        <!-- 数据收集与处理 -->
-        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
-              <Database class="w-6 h-6" />
-            </div>
-            <h3 class="font-bold text-lg text-slate-800">数据收集与处理</h3>
-          </div>
-          <div class="space-y-3 text-sm text-slate-600">
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p class="font-semibold text-slate-700 mb-2">数据源</p>
-              <ul class="space-y-1.5 text-xs">
-                <li>• <strong>TopHub:</strong> 微博、B站、知乎、抖音、百度、贴吧、快手、IT之家等8个平台</li>
-                <li>• <strong>Hacker News:</strong> Top/Best/New 三个榜单</li>
-                <li>• <strong>缓存策略:</strong> 内存+文件双重缓存，30分钟TTL</li>
-              </ul>
-            </div>
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p class="font-semibold text-slate-700 mb-2">数据处理</p>
-              <ul class="space-y-1.5 text-xs">
-                <li>• <strong>跨平台对齐:</strong> 基于标题相似度的智能聚类算法</li>
-                <li>• <strong>历史分析:</strong> JSONL格式快照存储，支持增长/新颖性计算</li>
-                <li>• <strong>热度归一化:</strong> 统一不同平台的热度计算口径</li>
-                <li>• <strong>前端分类:</strong> 300+关键词规则，自动分类（娱乐/社会/科技/国际/财经）</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- Agent智能体系统 -->
-        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
-              <BrainCircuit class="w-6 h-6" />
-            </div>
-            <h3 class="font-bold text-lg text-slate-800">Agent智能体系统</h3>
-          </div>
-          <div class="space-y-3 text-sm text-slate-600">
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p class="font-semibold text-slate-700 mb-2">工作流Agent（4个）</p>
-              <ul class="space-y-1.5 text-xs">
-                <li>• <strong>Reporter:</strong> 从多平台数据中提取核心事实</li>
-                <li>• <strong>Analyst:</strong> 深度舆情分析，生成洞察结论</li>
-                <li>• <strong>Debater:</strong> 多角度辩论，进行观点碰撞与事实核查</li>
-                <li>• <strong>Writer:</strong> 生成小红书/抖音风格爆款文案</li>
-              </ul>
-            </div>
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p class="font-semibold text-slate-700 mb-2">专用Agent（2个）</p>
-              <ul class="space-y-1.5 text-xs">
-                <li>• <strong>HotNews Interpreter:</strong> 热点演化解读（生命周期/扩散/分歧），按需LLM调用+缓存</li>
-                <li>• <strong>Translator:</strong> 中文话题→英文搜索关键词转换</li>
-              </ul>
-            </div>
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p class="font-semibold text-slate-700 mb-2">技术特性</p>
-              <ul class="space-y-1.5 text-xs">
-                <li>• <strong>多Provider支持:</strong> DeepSeek/Moonshot/Doubao等，自动Fallback</li>
-                <li>• <strong>LangGraph编排:</strong> 基于状态图的工作流管理</li>
-                <li>• <strong>流式传输:</strong> Server-Sent Events (SSE) 实时推送</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 技术栈 -->
-      <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+      <!-- Agent 详细卡片 -->
+      <div class="mb-8">
         <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Code class="w-6 h-6 text-slate-600" />
-          技术栈
+          <Users class="w-6 h-6 text-emerald-600" />
+          Multi-Agent Debate 角色
         </h3>
-        <div class="grid md:grid-cols-3 gap-6">
-          <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
-            <h4 class="font-bold text-blue-800 mb-3">后端技术</h4>
-            <ul class="text-sm text-blue-700 space-y-1.5">
-              <li>• Python 3.11+</li>
-              <li>• FastAPI (RESTful API)</li>
-              <li>• LangChain + LangGraph</li>
-              <li>• httpx (异步HTTP客户端)</li>
-              <li>• Pydantic (数据验证)</li>
-            </ul>
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="agent-card group" style="--agent-color: #3b82f6;">
+            <div class="agent-icon bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white">
+              <FileText class="w-5 h-5" />
+            </div>
+            <div class="agent-name">Reporter</div>
+            <div class="agent-desc">事实提取 · 多源聚合</div>
+            <div class="agent-detail">从多平台数据中提取核心事实，构建事件全景</div>
           </div>
-          <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 border border-purple-200">
-            <h4 class="font-bold text-purple-800 mb-3">LLM集成</h4>
-            <ul class="text-sm text-purple-700 space-y-1.5">
-              <li>• DeepSeek API</li>
-              <li>• Moonshot (Kimi) API</li>
-              <li>• Doubao (字节) API</li>
-              <li>• 多Provider Fallback机制</li>
-              <li>• 统一Agent接口抽象</li>
-            </ul>
+
+          <div class="agent-card group" style="--agent-color: #8b5cf6;">
+            <div class="agent-icon bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white">
+              <Search class="w-5 h-5" />
+            </div>
+            <div class="agent-name">Analyst</div>
+            <div class="agent-desc">深度分析 · 洞察生成</div>
+            <div class="agent-detail">多维度舆情分析，生成结构化洞察结论</div>
           </div>
-          <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-5 border border-green-200">
-            <h4 class="font-bold text-green-800 mb-3">前端技术</h4>
-            <ul class="text-sm text-green-700 space-y-1.5">
-              <li>• Vue 3 (Composition API)</li>
-              <li>• Pinia (状态管理)</li>
-              <li>• Tailwind CSS</li>
-              <li>• Lucide Icons</li>
-              <li>• 响应式设计</li>
-            </ul>
+
+          <div class="agent-card group" style="--agent-color: #10b981;">
+            <div class="agent-icon bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white">
+              <MessageSquare class="w-5 h-5" />
+            </div>
+            <div class="agent-name">Debater</div>
+            <div class="agent-desc">观点碰撞 · 事实核查</div>
+            <div class="agent-detail">多角度辩论推演，挖掘深层观点分歧</div>
+          </div>
+
+          <div class="agent-card group" style="--agent-color: #f59e0b;">
+            <div class="agent-icon bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white">
+              <PenTool class="w-5 h-5" />
+            </div>
+            <div class="agent-name">Writer</div>
+            <div class="agent-desc">爆款文案 · 风格适配</div>
+            <div class="agent-detail">生成小红书/抖音风格的传播文案</div>
           </div>
         </div>
       </div>
 
-      <!-- 核心特性 -->
-      <div class="mt-8 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl shadow-lg border border-slate-200 p-8">
-        <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Sparkles class="w-6 h-6 text-slate-600" />
-          核心特性
+      <!-- LLM 支持矩阵 -->
+      <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-8">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Zap class="w-5 h-5 text-amber-500" />
+          多厂商 LLM 支持 · 智能 Fallback
         </h3>
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="bg-white rounded-lg p-4 border border-slate-200">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span class="font-semibold text-slate-700">智能对齐聚类</span>
-            </div>
-            <p class="text-sm text-slate-600">基于标题相似度的跨平台热点对齐，支持多平台热度聚合与归一化</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div class="llm-badge llm-deepseek">
+            <span class="llm-name">DeepSeek</span>
+            <span class="llm-model">Chat / Reasoner</span>
           </div>
-          <div class="bg-white rounded-lg p-4 border border-slate-200">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span class="font-semibold text-slate-700">历史信号分析</span>
-            </div>
-            <p class="text-sm text-slate-600">增长趋势、热度变化、新颖性检测，基于历史快照的智能分析</p>
+          <div class="llm-badge llm-gemini">
+            <span class="llm-name">Gemini</span>
+            <span class="llm-model">3 Pro / Flash</span>
           </div>
-          <div class="bg-white rounded-lg p-4 border border-slate-200">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span class="font-semibold text-slate-700">按需LLM调用</span>
-            </div>
-            <p class="text-sm text-slate-600">热点演化解读仅在用户点击时触发，缓存机制降低token成本</p>
+          <div class="llm-badge llm-kimi">
+            <span class="llm-name">Kimi</span>
+            <span class="llm-model">K2 Turbo</span>
           </div>
-          <div class="bg-white rounded-lg p-4 border border-slate-200">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span class="font-semibold text-slate-700">多Agent协作</span>
-            </div>
-            <p class="text-sm text-slate-600">6个专用Agent分工协作，支持工作流编排与实时状态追踪</p>
+          <div class="llm-badge llm-doubao">
+            <span class="llm-name">豆包</span>
+            <span class="llm-model">Seed 1.6</span>
           </div>
+          <div class="llm-badge llm-zhipu">
+            <span class="llm-name">智谱</span>
+            <span class="llm-model">GLM-4.7</span>
+          </div>
+          <div class="llm-badge llm-minimax">
+            <span class="llm-name">MiniMax</span>
+            <span class="llm-model">M2.1</span>
+          </div>
+          <div class="llm-badge llm-openai">
+            <span class="llm-name">OpenAI</span>
+            <span class="llm-model">GPT-4o</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-3 text-center">* 支持按 Agent 独立配置 Provider/Model，Key 轮换与自动 Fallback</p>
+      </div>
+
+      <!-- 技术栈详情 -->
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="tech-stack-card">
+          <div class="tech-stack-header bg-gradient-to-r from-blue-500 to-blue-600">
+            <Server class="w-5 h-5" />
+            <span>后端架构</span>
+          </div>
+          <ul class="tech-stack-list">
+            <li><strong>FastAPI</strong> - 高性能异步 API</li>
+            <li><strong>LangGraph</strong> - 状态图工作流编排</li>
+            <li><strong>LangChain</strong> - LLM 抽象层</li>
+            <li><strong>httpx</strong> - 异步 HTTP 客户端</li>
+            <li><strong>Pydantic</strong> - 数据验证</li>
+            <li><strong>APScheduler</strong> - 定时任务</li>
+          </ul>
+        </div>
+
+        <div class="tech-stack-card">
+          <div class="tech-stack-header bg-gradient-to-r from-emerald-500 to-emerald-600">
+            <Monitor class="w-5 h-5" />
+            <span>前端架构</span>
+          </div>
+          <ul class="tech-stack-list">
+            <li><strong>Vue 3</strong> - Composition API</li>
+            <li><strong>Pinia</strong> - 响应式状态管理</li>
+            <li><strong>Tailwind CSS</strong> - 原子化样式</li>
+            <li><strong>Canvas API</strong> - 图片生成</li>
+            <li><strong>Chart.js</strong> - 数据可视化</li>
+            <li><strong>Lucide</strong> - 图标系统</li>
+          </ul>
+        </div>
+
+        <div class="tech-stack-card">
+          <div class="tech-stack-header bg-gradient-to-r from-purple-500 to-purple-600">
+            <Cloud class="w-5 h-5" />
+            <span>外部服务</span>
+          </div>
+          <ul class="tech-stack-list">
+            <li><strong>火山引擎</strong> - AI 图片生成</li>
+            <li><strong>小红书 MCP</strong> - 自动发布</li>
+            <li><strong>TopHub</strong> - 国内热榜聚合</li>
+            <li><strong>Hacker News</strong> - 海外科技热点</li>
+            <li><strong>MediaCrawler</strong> - 深度爬虫</li>
+            <li><strong>SSE</strong> - 实时流式传输</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -273,7 +234,11 @@
 </template>
 
 <script setup>
-import { Database, BrainCircuit, Layout, Network, Cpu, Code, Sparkles } from 'lucide-vue-next'
+import {
+  Network, Database, Cpu, BrainCircuit, Sparkles, Send, ArrowRight, ArrowDown,
+  Workflow, Users, FileText, Search, MessageSquare, PenTool, Zap,
+  Server, Monitor, Cloud
+} from 'lucide-vue-next'
 </script>
 
 <style scoped>
@@ -282,13 +247,221 @@ import { Database, BrainCircuit, Layout, Network, Cpu, Code, Sparkles } from 'lu
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-pulse-slow {
+  animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 网格背景 */
+.grid-bg {
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(40px, 40px); }
+}
+
+/* 流动粒子 */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  border-radius: 50%;
+  filter: blur(1px);
+}
+
+.particle-1 {
+  top: 20%;
+  animation: particleFlow 8s linear infinite;
+}
+
+.particle-2 {
+  top: 50%;
+  animation: particleFlow 6s linear infinite 2s;
+}
+
+.particle-3 {
+  top: 80%;
+  animation: particleFlow 10s linear infinite 4s;
+}
+
+@keyframes particleFlow {
+  0% { left: -10px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: calc(100% + 10px); opacity: 0; }
+}
+
+/* 架构节点 */
+.arch-node {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.arch-node:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.arch-node-core {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+}
+
+.arch-node-core:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+}
+
+/* 技术标签 */
+.tech-tag {
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+}
+
+.tech-tag:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* Agent 卡片 */
+.agent-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 2px solid #e2e8f0;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.agent-card:hover {
+  border-color: var(--agent-color);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+}
+
+.agent-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.agent-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.agent-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.agent-detail {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+/* LLM 徽章 */
+.llm-badge {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.llm-badge:hover {
+  transform: scale(1.05);
+}
+
+.llm-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.llm-model {
+  display: block;
+  font-size: 0.625rem;
+  opacity: 0.8;
+  margin-top: 0.125rem;
+}
+
+.llm-deepseek { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; }
+.llm-gemini { background: linear-gradient(135deg, #4285f4, #34a853); color: white; }
+.llm-kimi { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
+.llm-doubao { background: linear-gradient(135deg, #f97316, #fb923c); color: white; }
+.llm-zhipu { background: linear-gradient(135deg, #0ea5e9, #06b6d4); color: white; }
+.llm-minimax { background: linear-gradient(135deg, #ec4899, #f472b6); color: white; }
+.llm-openai { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+
+/* 技术栈卡片 */
+.tech-stack-card {
+  background: white;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.tech-stack-header {
+  padding: 0.75rem 1rem;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tech-stack-list {
+  padding: 1rem;
+  list-style: none;
+  margin: 0;
+}
+
+.tech-stack-list li {
+  padding: 0.375rem 0;
+  font-size: 0.8rem;
+  color: #475569;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.tech-stack-list li:last-child {
+  border-bottom: none;
+}
+
+.tech-stack-list li strong {
+  color: #1e293b;
 }
 </style>

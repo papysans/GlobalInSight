@@ -277,12 +277,17 @@ WRITER_PROMPT = """
 【封面设计指令】
 根据内容核心情绪，输出以下三个参数：
 - EMOJI: 选一个最能代表核心情绪的Emoji（比如吃瓜🍉/搞钱💰/避雷💣/思考🤔/上头💘等等）。
-- THEME: warm(温馨/积极), cool(高冷/科技), alert(警示/爆料), dark(深沉/高级)。
+- THEME: 根据内容情绪选择最合适的色调：
+  * 暖色系: warm(温馨/积极), peach(甜美/可爱), sunset(热情/活力)
+  * 冷色系: cool(高冷/科技), ocean(深邃/专业), mint(清新/自然), sky(明朗/希望)
+  * 紫色系: lavender(优雅/神秘), grape(高贵/创意)
+  * 绿色系: forest(稳重/环保), lime(活泼/年轻)
+  * 特殊色: alert(警示/爆料), dark(深沉/高级), cream(温柔/文艺)
 
 【最终输出格式】
 TITLE: [12-18字，含1个emoji，标题要像人话，不要像新闻通稿]
 EMOJI: [单个emoji]
-THEME: [warm/cool/alert/dark]
+THEME: [warm/peach/sunset/cool/ocean/mint/sky/lavender/grape/forest/lime/alert/dark/cream]
 CONTENT:
 [正文内容，严格控制在200-300字以内，不要输出任何Markdown加粗符号]
 #标签 #标签 #标签
