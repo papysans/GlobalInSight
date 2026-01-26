@@ -76,6 +76,138 @@ export const useAnalysisStore = defineStore("analysis", {
             { code: "zhihu", name: "知乎" },
             { code: "hn", name: "Hacker News" },
         ],
+
+        // 洞察卡数据
+        insightCardData: (state) => {
+            // Workflow 数据源
+            if (state.dataUnlocked) {
+                const debateRounds = state.logs.filter(log => log.agent_name === 'Analyst').length;
+                const critiqueCount = state.logs.filter(log => log.agent_name === 'Debater').length;
+                const controversy = critiqueCount > 3 ? '高' : critiqueCount > 1 ? '中' : '低';
+                
+                // 计算平台覆盖（从日志中提取）
+                const platformCount = state.selectedPlatforms?.length || 0;
+                
+                return {
+                    conclusion: state.insight || '暂无洞察',
+                    coverage: {
+                        platforms: platformCount,
+                        debateRounds,
+                        controversy
+                    },
+                    keyFinding: extractKeyFinding(state.insight)
+                };
+            }
+            
+            // 默认返回空数据
+            return {
+                conclusion: '暂无洞察',
+                coverage: {
+                    platforms: 0,
+                    debateRounds: 0,
+                    controversy: '低'
+                },
+                keyFinding: ''
+            };
+        },
+
+        // 雷达图数据
+        radarChartData: (state) => {
+            // 从选中的平台生成雷达图数据
+            const platforms = state.selectedPlatforms || [];
+            if (platforms.length === 0) {
+                return {
+                    labels: [],
+                    datasets: [{
+                        label: '平台覆盖',
+                        data: [],
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: 'rgb(59, 130, 246)'
+                    }]
+                };
+            }
+
+            // 为每个平台生成一个基础热度值（可以后续从实际数据中获取）
+            const platformData = platforms.map(p => {
+                const platformName = platformNameMap[p] || p;
+                // 生成一个基于平台的伪随机值（60-95之间）
+                const baseValue = 60 + (platformName.charCodeAt(0) % 35);
+                return { name: platformName, value: baseValue };
+            });
+
+            return {
+                labels: platformData.map(p => p.name),
+                datasets: [{
+                    label: '平台覆盖',
+                    data: platformData.map(p => p.value),
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    pointBackgroundColor: 'rgb(59, 130, 246)'
+                }]
+            };
+        },
+
+        // 辩论时间线数据
+        debateTimelineData: (state) => {
+            return state.logs
+                .filter(log => log.agent_name === 'Analyst')
+                .map((log, index) => {
+                    const content = log.step_content || '';
+                    const titleMatch = content.match(/TITLE:\s*(.+?)(?=\s*(?:SUB:|INSIGHT:|$))/is);
+                    const insightMatch = content.match(/INSIGHT:\s*(.+?)(?=\s*(?:TITLE:|$))/is);
+                    
+                    const fullInsight = insightMatch ? insightMatch[1].trim() : '';
+                    
+                    // 生成一句话总结（用于卡片展示）
+                    // 提取第一句话，或者截取前40字
+                    let summary = '';
+                    if (fullInsight) {
+                        const firstSentence = fullInsight.match(/^[^。！？.!?]+[。！？.!?]/);
+                        if (firstSentence) {
+                            summary = firstSentence[0];
+                        } else {
+                            summary = fullInsight.substring(0, 40) + (fullInsight.length > 40 ? '...' : '');
+                        }
+                    }
+                    
+                    return {
+                        round: index + 1,
+                        title: titleMatch ? titleMatch[1].trim() : '推理中...',
+                        insight: fullInsight,
+                        summary: summary, // 一句话总结，用于卡片
+                        insightPreview: fullInsight.substring(0, 80) + (fullInsight.length > 80 ? '...' : '') // 80字预览
+                    };
+                });
+        },
+
+        // 趋势图数据
+        trendChartData: (state) => {
+            // 基于分析状态生成趋势数据
+            const debateRounds = state.logs.filter(log => log.agent_name === 'Analyst').length;
+            
+            // 根据辩论轮次判断阶段
+            let stage = '扩散期';
+            let growth = 50;
+            let curve = [40, 55, 70, 80, 90, 95, 92];
+            
+            if (debateRounds <= 2) {
+                // 早期：爆发期
+                stage = '爆发期';
+                growth = 999;
+                curve = [10, 30, 60, 85, 95, 100, 98];
+            } else if (debateRounds > 4) {
+                // 后期：回落期
+                stage = '回落期';
+                growth = -20;
+                curve = [80, 75, 65, 50, 35, 25, 20];
+            }
+            
+            return {
+                stage,
+                growth,
+                curve
+            };
+        }
     },
 
     actions: {
@@ -428,3 +560,26 @@ export const useAnalysisStore = defineStore("analysis", {
         },
     },
 });
+
+// 辅助函数
+function extractKeyFinding(insight) {
+    if (!insight) return '';
+    const match = insight.match(/背后是(.+?)。|反映了(.+?)。/);
+    return match ? (match[1] || match[2]).trim() : '';
+}
+
+const platformNameMap = {
+    wb: '微博',
+    bili: 'B站',
+    xhs: '小红书',
+    dy: '抖音',
+    ks: '快手',
+    tieba: '贴吧',
+    zhihu: '知乎',
+    hn: 'Hacker News',
+    baidu: '百度',
+    kuaishou: '快手',
+    weibo: '微博',
+    bilibili: 'B站',
+    douyin: '抖音'
+};

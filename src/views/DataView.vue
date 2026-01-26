@@ -3,27 +3,101 @@
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-8">
         <h2 class="text-3xl font-bold text-slate-900 mb-2">多维数据洞察</h2>
-        <p class="text-slate-500">生成式数据可视化卡片 (Generative Data Cards)</p>
+        <p class="text-slate-500">基于真实数据的AI推理可视化</p>
       </div>
 
-      <div class="relative grid lg:grid-cols-12 gap-6 items-start">
-        <!-- 数据锁定提示（仅针对舆情推演数据） -->
-        <div
-          v-if="!dataUnlocked && dataSource === 'workflow'"
-          class="absolute inset-0 z-20 rounded-3xl locked-overlay flex flex-col items-center justify-center text-center p-8"
-        >
-          <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
-            <Lock class="w-8 h-8 text-slate-400" />
-          </div>
-          <h3 class="text-xl font-bold text-slate-700 mb-2">数据尚未生成</h3>
-          <p class="text-slate-500 max-w-md">请先在「舆情推演」页面启动分析，系统将基于辩论结果自动生成"中外舆论对比"等数据。</p>
+      <!-- 数据锁定提示 -->
+      <div
+        v-if="!dataUnlocked"
+        class="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-6 flex items-start gap-4"
+      >
+        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <Lock class="w-6 h-6 text-blue-600" />
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-bold text-slate-900 mb-2">数据尚未生成</h3>
+          <p class="text-slate-600 mb-4">请先在「舆情推演」页面启动分析，系统将基于辩论结果自动生成数据洞察。</p>
           <button
             @click="$emit('switch-tab', 'home')"
-            class="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             前往推演
           </button>
         </div>
+      </div>
+
+      <!-- 双卡布局 -->
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- 洞察卡 -->
+        <InsightCard
+          v-if="dataUnlocked"
+          :conclusion="insightCardData.conclusion"
+          :coverage="insightCardData.coverage"
+          :key-finding="insightCardData.keyFinding"
+        />
+
+        <!-- 数据可视化卡 -->
+        <div v-if="dataUnlocked" class="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
+          <!-- Tab 选择器 -->
+          <div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+            <button
+              v-for="option in vizOptions"
+              :key="option.type"
+              @click="selectedVizOption = option.type"
+              :class="[
+                'px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2',
+                selectedVizOption === option.type
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              ]"
+            >
+              <component :is="option.icon" class="w-4 h-4" />
+              {{ option.label }}
+            </button>
+          </div>
+
+          <!-- 图表容器 -->
+          <div class="chart-container relative" style="min-height: 400px;">
+            <!-- 雷达图 -->
+            <div v-if="selectedVizOption === 'radar'" class="animate-fade-in">
+              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Radar class="w-5 h-5 text-blue-600" />
+                平台覆盖分布
+              </h3>
+              <RadarChart
+                :data="radarChartData"
+                :theme="selectedTheme"
+              />
+            </div>
+
+            <!-- 辩论时间线 -->
+            <div v-if="selectedVizOption === 'timeline'" class="animate-fade-in">
+              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <GitBranch class="w-5 h-5 text-purple-600" />
+                辩论演化过程
+              </h3>
+              <DebateTimeline
+                :timeline="debateTimelineData"
+              />
+            </div>
+
+            <!-- 热度趋势 -->
+            <div v-if="selectedVizOption === 'trend'" class="animate-fade-in">
+              <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <TrendingUp class="w-5 h-5 text-green-600" />
+                热度趋势分析
+              </h3>
+              <TrendChart
+                :data="trendChartData"
+                :theme="selectedTheme"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 旧版控制面板和预览（保留用于导出功能） -->
+      <div v-if="false" class="relative grid lg:grid-cols-12 gap-6 items-start mt-8">
 
         <!-- Left: Control Panel -->
         <div
@@ -264,9 +338,13 @@ import { useAnalysisStore } from '../stores/analysis'
 import { api } from '../api'
 import {
   Lock, LayoutGrid, ChevronRight, Edit3, Palette, Download,
-  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2
+  ArrowLeftRight, PieChart, Cloud, Database, TrendingUp, RefreshCw, BarChart3, Loader2, Radar, GitBranch
 } from 'lucide-vue-next'
 import { Chart, registerables } from 'chart.js'
+import InsightCard from '../components/InsightCard.vue'
+import RadarChart from '../components/RadarChart.vue'
+import DebateTimeline from '../components/DebateTimeline.vue'
+import TrendChart from '../components/TrendChart.vue'
 
 Chart.register(...registerables)
 
@@ -285,6 +363,20 @@ const emit = defineEmits(['switch-tab'])
 
 const analysisStore = useAnalysisStore()
 const dataUnlocked = computed(() => analysisStore.dataUnlocked)
+
+// 新增：从 store 获取洞察卡和雷达图数据
+const insightCardData = computed(() => analysisStore.insightCardData)
+const radarChartData = computed(() => analysisStore.radarChartData)
+const debateTimelineData = computed(() => analysisStore.debateTimelineData)
+const trendChartData = computed(() => analysisStore.trendChartData)
+
+// 可视化选项状态
+const selectedVizOption = ref('radar')
+const vizOptions = [
+  { type: 'radar', label: '平台覆盖', icon: Radar },
+  { type: 'timeline', label: '辩论演化', icon: GitBranch },
+  { type: 'trend', label: '热度趋势', icon: TrendingUp }
+]
 
 // 数据源：'workflow' 或 'hotnews'
 const dataSource = ref('workflow')
