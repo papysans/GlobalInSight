@@ -574,15 +574,21 @@ const emojiPosition = ref('bottom-right') // top-left, top-right, bottom-left, b
 // 计算属性：根据编辑状态返回正确的图片列表
 // 如果正在编辑，使用用户选择和排序后的图片；否则使用原始图片
 const displayImages = computed(() => {
+  // 构建完整图片数组：Title Card + DataView 卡片 + AI 生图
+  const allImages = [
+    null, // 0: Title Card
+    ...analysisStore.dataViewImages, // 1-3: DataView 卡片（如果有）
+    ...analysisStore.imageUrls // 4+: AI 生图
+  ]
+  
   // 如果正在编辑或已保存编辑，使用编辑后的图片顺序
-  if (analysisStore.isEditing || (editableContent.value.selectedImageIndices.length > 0 && editableContent.value.selectedImageIndices.length < (analysisStore.imageUrls.length + 1))) {
-    const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+  if (analysisStore.isEditing || (editableContent.value.selectedImageIndices.length > 0 && editableContent.value.selectedImageIndices.length < allImages.length)) {
     return editableContent.value.imageOrder
       .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
       .map(idx => allImages[idx])
   }
-  // 默认：标题卡 + 所有 AI 图片
-  return [null, ...analysisStore.imageUrls]
+  // 默认：标题卡 + DataView 卡片 + 所有 AI 图片
+  return allImages
 })
 
 // 计算属性：当前显示的图片总数
@@ -1193,8 +1199,12 @@ const exportAllImages = async () => {
     const selectedIndices = editableContent.value.selectedImageIndices || []
     const imageOrder = editableContent.value.imageOrder || []
     
-    // 构建所有图片数组（索引0=标题卡，索引1+=AI图片）
-    const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+    // 构建完整图片数组：Title Card + DataView 卡片 + AI 生图
+    const allImages = [
+      null, // 0: Title Card
+      ...analysisStore.dataViewImages, // 1-3: DataView 卡片
+      ...analysisStore.imageUrls // 4+: AI 生图
+    ]
     
     // 按用户定义的顺序导出选中的图片
     const imagesToExport = imageOrder
@@ -1204,6 +1214,7 @@ const exportAllImages = async () => {
     console.log('[Export] 导出图片:', {
       selectedIndices,
       imageOrder,
+      dataViewCount: analysisStore.dataViewImages.length,
       imagesToExport: imagesToExport.map(img => ({ index: img.index, hasSource: !!img.source }))
     })
     
@@ -1237,19 +1248,24 @@ const exportAllImages = async () => {
           URL.revokeObjectURL(titleUrl)
           console.log(`[Export] 已导出标题卡 (${i + 1}/${imagesToExport.length})`)
         } else {
-          // 导出 AI 图片
+          // 导出 DataView 卡片或 AI 图片
           const res = await fetch(source)
           if (!res.ok) throw new Error(`下载失败: ${res.status}`)
           const blob = await res.blob()
           const downloadUrl = URL.createObjectURL(blob)
           const a = document.createElement('a')
+          const dataViewCount = analysisStore.dataViewImages.length
+          const isDataView = index > 0 && index <= dataViewCount
+          const fileName = isDataView 
+            ? `xhs_image_${i + 1}_dataview.png`
+            : `xhs_image_${i + 1}_ai.jpg`
           a.href = downloadUrl
-          a.download = `xhs_image_${i + 1}_ai.jpg`
+          a.download = fileName
           document.body.appendChild(a)
           a.click()
           a.remove()
           URL.revokeObjectURL(downloadUrl)
-          console.log(`[Export] 已导出 AI 图片 (${i + 1}/${imagesToExport.length})`)
+          console.log(`[Export] 已导出${isDataView ? 'DataView卡片' : 'AI图片'} (${i + 1}/${imagesToExport.length})`)
         }
       } catch (err) {
         console.error(`[Export] 导出图片 ${i + 1} 失败:`, err)
@@ -1319,8 +1335,13 @@ const publishToXhs = async () => {
   
   if (!titleToPublish || !bodyToPublish) return
   
-  // 获取用户编辑后的图片顺序（保留索引信息）
-  const allImages = [null, ...analysisStore.imageUrls] // null 代表标题卡
+  // 构建完整图片数组：Title Card + DataView 卡片 + AI 生图
+  const allImages = [
+    null, // 0: Title Card
+    ...analysisStore.dataViewImages, // 1-3: DataView 卡片（如果有）
+    ...analysisStore.imageUrls // 4+: AI 生图
+  ]
+  
   const orderedIndices = editableContent.value.imageOrder
     .filter(idx => editableContent.value.selectedImageIndices.includes(idx))
   
@@ -1335,19 +1356,6 @@ const publishToXhs = async () => {
   const originalIndex = currentDisplayIndex.value
   
   try {
-    // 生成数据视图卡片（如果数据已解锁）
-    let dataViewImages = []
-    if (analysisStore.dataUnlocked) {
-      try {
-        // 通过事件总线或直接访问 store 中的方法
-        // 由于跨组件访问复杂，我们先生成并保存到 store
-        console.log('[Publish] 数据视图卡片功能已集成，将在后续版本中启用')
-        // TODO: 实现跨组件调用 DataView 的 generateDataViewImages 方法
-      } catch (e) {
-        console.error('[Publish] ⚠️ 数据视图卡片生成失败:', e)
-      }
-    }
-    
     // 按照用户编辑的顺序构建最终图片列表
     const allImagesToPublish = []
     
@@ -1367,16 +1375,10 @@ const publishToXhs = async () => {
           console.error('[Publish] ❌ 标题卡生成失败:', e)
         }
       } else {
-        // 添加 AI 图片
+        // 添加其他图片（DataView 卡片或 AI 生图）
         allImagesToPublish.push(allImages[idx])
-        console.log('[Publish] ✅ AI图片已添加到位置', allImagesToPublish.length - 1, '原始索引:', idx)
+        console.log('[Publish] ✅ 图片已添加到位置', allImagesToPublish.length - 1, '原始索引:', idx)
       }
-    }
-    
-    // 添加数据视图卡片到末尾
-    if (dataViewImages.length > 0) {
-      allImagesToPublish.push(...dataViewImages)
-      console.log('[Publish] ✅ 数据视图卡片已添加到末尾')
     }
     
     if (allImagesToPublish.length === 0) {

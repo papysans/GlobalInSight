@@ -93,7 +93,7 @@
             
             <!-- 图片内容 -->
             <img
-              v-if="img.type === 'ai' || img.type === 'title-image'"
+              v-if="img.type === 'ai' || img.type === 'title-image' || img.type === 'dataview'"
               :src="img.url"
               :alt="img.label"
               class="w-full h-full object-cover"
@@ -149,7 +149,7 @@
             >
               <!-- 图片内容 -->
               <img
-                v-if="img.type === 'ai' || img.type === 'title-image'"
+                v-if="img.type === 'ai' || img.type === 'title-image' || img.type === 'dataview'"
                 :src="img.url"
                 :alt="img.label"
                 class="w-full h-full object-cover"
@@ -258,25 +258,35 @@ watch(isEditing, (newVal) => {
 const allImages = computed(() => {
   const images = []
   
-  // 检查第一张图片是否是Title Card图片（文件名包含 'title_card'）
-  if (imageUrls.value.length > 0 && imageUrls.value[0].includes('title_card')) {
-    // 第一张是Title Card图片
-    images.push({ type: 'title-image', label: 'Title Card', url: imageUrls.value[0], originalIndex: 0 })
-    // 其余是AI图片
-    imageUrls.value.slice(1).forEach((url, i) => {
-      images.push({ type: 'ai', label: `AI配图 ${i + 1}`, url, originalIndex: i + 1 })
+  // 1. Title Card（始终在第一位）
+  images.push({ type: 'title', label: '标题卡', url: null, originalIndex: 0 })
+  
+  // 2. DataView 卡片（如果有）
+  const dataViewImages = analysisStore.dataViewImages || []
+  dataViewImages.forEach((url, i) => {
+    const labels = ['平台覆盖', '辩论演化', '热度趋势']
+    images.push({ 
+      type: 'dataview', 
+      label: labels[i] || `数据卡片 ${i + 1}`, 
+      url, 
+      originalIndex: i + 1 
     })
-  } else {
-    // 没有Title Card图片，需要生成
-    images.push({ type: 'title', label: '标题卡', url: null, originalIndex: 0 })
-    // 所有都是AI图片
-    imageUrls.value.forEach((url, i) => {
-      images.push({ type: 'ai', label: `AI配图 ${i + 1}`, url, originalIndex: i + 1 })
+  })
+  
+  // 3. AI 生图
+  imageUrls.value.forEach((url, i) => {
+    images.push({ 
+      type: 'ai', 
+      label: `AI配图 ${i + 1}`, 
+      url, 
+      originalIndex: dataViewImages.length + i + 1 
     })
-  }
+  })
   
   console.log('[CopywritingEditor] allImages computed:', {
     totalCount: images.length,
+    dataViewCount: dataViewImages.length,
+    aiImageCount: imageUrls.value.length,
     firstImage: images[0],
     restImages: images.slice(1).map(img => ({ label: img.label, type: img.type }))
   })

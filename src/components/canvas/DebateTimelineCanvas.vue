@@ -103,7 +103,7 @@ const generateImage = async () => {
   ctx.fillText('辩论演化过程', 180, 90)
   
   // 3. 时间线内容 - 计算总高度并垂直居中
-  const headerY = 80
+  const headerY = 100
   const headerHeight = 120
   const summaryHeight = 120
   const summaryMargin = 20
