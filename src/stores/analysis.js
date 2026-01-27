@@ -625,24 +625,34 @@ export const useAnalysisStore = defineStore("analysis", {
                                 console.log('[AnalysisStore] 😀 解析到 Emoji:', this.titleEmoji);
                             }
 
-                            // 解析 THEME
+                            // 解析 THEME - 只匹配主题值，不贪婪匹配后面的内容
                             const themeMatch = cleanContent.match(/THEME:\s*(warm|peach|sunset|cool|ocean|mint|sky|lavender|grape|forest|lime|alert|dark|cream)/i);
                             if (themeMatch && themeMatch[1]) {
                                 this.titleTheme = themeMatch[1].toLowerCase();
                                 console.log('[AnalysisStore] 🎨 解析到 Theme:', this.titleTheme);
                             }
 
-                            // 解析正文内容（CONTENT: 之后的所有内容）
+                            // 解析正文内容
+                            // 优先使用 CONTENT: 标记
                             const contentMatch = cleanContent.match(/CONTENT:\s*([\s\S]+)$/i);
                             if (contentMatch && contentMatch[1]) {
                                 body = contentMatch[1].trim();
                             } else {
-                                // 如果没有 CONTENT: 标记，尝试移除所有元数据标记
-                                body = cleanContent
-                                    .replace(/TITLE:\s*.+?(?=\s*(?:EMOJI:|THEME:|CONTENT:|$))/is, '')
-                                    .replace(/EMOJI:\s*.+?(?=\s*(?:THEME:|CONTENT:|$))/is, '')
-                                    .replace(/THEME:\s*.+?(?=\s*CONTENT:|$)/is, '')
-                                    .trim();
+                                // 如果没有 CONTENT: 标记，提取 THEME 值之后的所有内容作为正文
+                                // 匹配模式：THEME: <主题值><正文内容>
+                                const themeBodyMatch = cleanContent.match(/THEME:\s*(?:warm|peach|sunset|cool|ocean|mint|sky|lavender|grape|forest|lime|alert|dark|cream)\s*([\s\S]+)$/i);
+                                if (themeBodyMatch && themeBodyMatch[1]) {
+                                    body = themeBodyMatch[1].trim();
+                                    console.log('[AnalysisStore] 🔧 使用 THEME 后内容作为正文（无 CONTENT 标记）');
+                                } else {
+                                    // 最后的 fallback：移除所有已知标记
+                                    body = cleanContent
+                                        .replace(/TITLE:\s*.+?(?=\s*(?:EMOJI:|THEME:|CONTENT:|$))/is, '')
+                                        .replace(/EMOJI:\s*.+?(?=\s*(?:THEME:|CONTENT:|$))/is, '')
+                                        .replace(/THEME:\s*(?:warm|peach|sunset|cool|ocean|mint|sky|lavender|grape|forest|lime|alert|dark|cream)/i, '')
+                                        .trim();
+                                    console.log('[AnalysisStore] 🔧 使用 fallback 解析正文');
+                                }
                             }
 
                             console.log('[AnalysisStore] 📋 解析结果:', {
