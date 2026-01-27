@@ -2,7 +2,7 @@
   <div class="vision-page relative min-h-screen overflow-x-hidden" :class="isDarkMode ? 'dark-theme' : 'light-theme'">
     <!-- Three.js 背景 - 根据主题切换 -->
     <CosmicBackground v-if="isDarkMode" />
-    <LightBackground v-else />
+    <OceanWaveBackground v-else />
     
     <div class="relative z-10">
       <!-- Hero 区域 -->
@@ -243,7 +243,7 @@ import {
   TrendingUp, GitBranch, Zap, Shield, Clock, Globe, ChevronDown
 } from 'lucide-vue-next'
 import CosmicBackground from '@/components/CosmicBackground.vue'
-import LightBackground from '@/components/LightBackground.vue'
+import OceanWaveBackground from '@/components/OceanWaveBackground.vue'
 import { useConfigStore } from '@/stores/config'
 
 gsap.registerPlugin(ScrollTrigger)
