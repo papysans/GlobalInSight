@@ -35,6 +35,13 @@ import copy
 
 router = APIRouter()
 
+
+@router.get("/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "ok", "service": "globalinsight-backend"}
+
+
 # --- Hot News: SWR (stale-while-revalidate) background refresh ---
 _HOTNEWS_REFRESH_TASKS: Dict[str, "asyncio.Task[None]"] = {}
 

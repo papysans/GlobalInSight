@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "opinion-analyzer": {
+      "transport": "sse",
+      "url": "http://localhost:18061/sse"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+# ClawdBot (Moltbot) 配置示例
+# 用于连接 GlobalInSight Opinion MCP 服务
+#
+# 使用方法:
+# 1. 复制此文件到 ClawdBot 配置目录
+# 2. 根据实际部署情况修改 url
+# 3. 重启 ClawdBot 服务
+#
+# 更多信息请参考: https://github.com/your-org/clawdbot
+
+# MCP 服务器配置
+skills:
+  - name: mcporter
+    config:
+      servers:
+        - name: opinion-analyzer
+          url: http://localhost:18061
+          description: "GlobalInSight 舆论分析服务"
+          
+          # 可用工具说明
+          tools:
+            - name: analyze_topic
+              description: "启动舆论分析任务，分析指定话题在各平台的舆论态势"
+              
+            - name: get_analysis_status
+              description: "查询舆论分析任务的当前状态和进度"
+              
+            - name: get_analysis_result
+              description: "获取已完成的舆论分析结果，包含文案和配图"
+              
+            - name: get_hot_news
+              description: "获取多平台热榜数据，可用于发现热门话题"
+              
+            - name: get_settings
+              description: "获取当前的分析配置，包括默认平台、图片数量等"
+              
+            - name: update_copywriting
+              description: "修改分析结果的文案内容"
+              
+            - name: publish_to_xhs
+              description: "将分析结果发布到小红书"
+              
+            - name: register_webhook
+              description: "注册进度推送的 Webhook URL"
+
+# Telegram Bot 配置 (示例)
+telegram:
+  # 从 @BotFather 获取的 Bot Token
+  token: "YOUR_TELEGRAM_BOT_TOKEN"
+  
+  # 允许使用的用户 ID 列表 (可选，留空则允许所有用户)
+  allowed_users: []
+  
+  # 管理员用户 ID 列表
+  admin_users: []
+
+# 日志配置
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 高级配置
+advanced:
+  # MCP 请求超时时间 (秒)
+  mcp_timeout: 300
+  
+  # 是否启用进度推送
+  enable_webhook: true
+  
+  # Webhook 回调端口 (ClawdBot 接收推送的端口)
+  webhook_port: 8080

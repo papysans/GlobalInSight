@@ -292,6 +292,99 @@ uv run uvicorn api.main:app --port 8080 --reload
 
 ---
 
+## 🤖 Opinion MCP 服务 (ClawdBot 集成)
+
+Opinion MCP 是一个基于 Model Context Protocol (MCP) 的舆论分析服务，允许 AI 助手（如 ClawdBot/Moltbot）通过 Telegram 调用 GlobalInSight 的舆论分析功能。
+
+### 功能特点
+
+- **话题舆论分析**：分析指定话题在多平台的舆论态势
+- **热榜数据获取**：获取多平台热点新闻聚合
+- **进度实时推送**：通过 Webhook 推送分析进度
+- **文案编辑**：支持修改生成的小红书文案
+- **一键发布**：直接发布到小红书平台
+
+### 启动 Opinion MCP 服务
+
+```bash
+# 方式 1: 使用启动脚本
+./scripts/start-opinion-mcp.sh
+
+# 方式 2: 直接运行
+source .venv/bin/activate
+python -m opinion_mcp.server --port 18061
+
+# 验证服务是否正常运行
+curl http://localhost:18061/health
+```
+
+### 可用工具
+
+| 工具名称 | 描述 |
+|---------|------|
+| `analyze_topic` | 启动舆论分析任务，分析指定话题在各平台的舆论态势 |
+| `get_analysis_status` | 查询舆论分析任务的当前状态和进度 |
+| `get_analysis_result` | 获取已完成的舆论分析结果，包含文案和配图 |
+| `get_hot_news` | 获取多平台热榜数据，可用于发现热门话题 |
+| `get_settings` | 获取当前的分析配置，包括默认平台、图片数量等 |
+| `update_copywriting` | 修改分析结果的文案内容 |
+| `publish_to_xhs` | 将分析结果发布到小红书 |
+| `register_webhook` | 注册进度推送的 Webhook URL |
+
+### ClawdBot 集成
+
+1. 复制配置示例文件：
+   ```bash
+   cp clawdbot-config.example.yaml /path/to/clawdbot/config.yaml
+   ```
+
+2. 修改配置文件中的 `url` 为实际部署地址
+
+3. 重启 ClawdBot 服务
+
+### 使用示例
+
+通过 Telegram 与 ClawdBot 对话：
+
+```
+用户: 帮我分析"DeepSeek开源"这个话题
+
+ClawdBot: 好的！你要爬取哪些平台？
+  📱 微博 (wb)
+  🎵 抖音 (dy)
+  📺 B站 (bili)
+  ...
+  回复平台代码，或回复"全部"
+
+用户: 全部
+
+ClawdBot: 收到！开始分析，预计需要15分钟...
+  🔄 开始多平台数据爬取...
+  ✅ 微博爬取完成 (45条)
+  ✅ 抖音爬取完成 (32条)
+  ...
+  🎉 分析完成！
+
+  📱 小红书文案预览
+  标题: DeepSeek开源：中国AI的里程碑时刻
+  ...
+
+用户: OK，发布吧
+
+ClawdBot: ✅ 发布成功！
+```
+
+### 端口说明
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| 后端 API | 8000 | FastAPI 后端服务 |
+| 前端 | 5173 | Vue 开发服务器 |
+| 小红书 MCP | 18060 | 小红书发布服务 |
+| Opinion MCP | 18061 | 舆论分析 MCP 服务 |
+
+---
+
 ## 🙏 鸣谢
 
 感谢以下开源项目和开发者的贡献：
