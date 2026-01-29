@@ -1476,7 +1476,113 @@ onMounted(() => {
   refreshTrending()
   hydrateHotTopicDraft()
   checkXhsStatus()
+  
+  // 请求浏览器通知权限
+  requestNotificationPermission()
 })
+
+// 请求浏览器通知权限
+const requestNotificationPermission = async () => {
+  console.log('[Notification] 🔔 检查通知支持...')
+  
+  if (!('Notification' in window)) {
+    console.warn('[Notification] ❌ 浏览器不支持通知')
+    return false
+  }
+  
+  console.log('[Notification] 📋 当前权限状态:', Notification.permission)
+  
+  if (Notification.permission === 'granted') {
+    console.log('[Notification] ✅ 已有通知权限')
+    return true
+  }
+  
+  if (Notification.permission !== 'denied') {
+    console.log('[Notification] 🙋 请求通知权限...')
+    const permission = await Notification.requestPermission()
+    console.log('[Notification] 📋 用户选择:', permission)
+    return permission === 'granted'
+  }
+  
+  console.warn('[Notification] ❌ 通知权限被拒绝')
+  return false
+}
+
+// 发送原生浏览器通知
+const sendNativeNotification = (title, body) => {
+  console.log('[Notification] 📤 尝试发送通知:', { title, body })
+  
+  if (Notification.permission !== 'granted') {
+    console.warn('[Notification] ❌ 通知权限未授予，无法发送')
+    return
+  }
+  
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: '/logo-light.png',
+      badge: '/logo-light.png',
+      tag: `workflow-complete-${Date.now()}`, // 每次唯一，避免被合并
+      requireInteraction: false,
+      silent: false
+    })
+    
+    console.log('[Notification] ✅ 通知已发送!')
+    
+    notification.onclick = () => {
+      console.log('[Notification] 👆 用户点击了通知')
+      window.focus()
+      const copywritingSection = document.querySelector('.border-t-emerald-500')
+      if (copywritingSection) {
+        copywritingSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      notification.close()
+    }
+    
+    notification.onclose = () => {
+      console.log('[Notification] 🔕 通知已关闭')
+    }
+    
+    notification.onerror = (e) => {
+      console.error('[Notification] ❌ 通知发送失败:', e)
+    }
+  } catch (err) {
+    console.error('[Notification] ❌ 创建通知时出错:', err)
+  }
+}
+
+// 监听工作流完成状态，触发原生通知
+const wasRunning = ref(false)
+watch(
+  () => isLoading.value && workflowStatus.value.running,
+  async (isRunning) => {
+    console.log('[Notification] 👀 工作流状态变化:', {
+      wasRunning: wasRunning.value,
+      isRunning,
+      hasFinalCopy: !!analysisStore.finalCopy.title,
+      topic: topic.value
+    })
+    
+    // 当从运行中变为停止时，说明工作流完成了
+    if (wasRunning.value && !isRunning && analysisStore.finalCopy.title) {
+      console.log('[Notification] 🎉 工作流完成，准备发送通知...')
+      
+      // 发送原生浏览器通知
+      const hasPermission = await requestNotificationPermission()
+      console.log('[Notification] 📋 权限检查结果:', hasPermission)
+      
+      if (hasPermission) {
+        sendNativeNotification(
+          '✨ 分析完成',
+          `「${topic.value}」的舆情分析已完成，文案和配图已生成`
+        )
+      } else {
+        console.warn('[Notification] ⚠️ 无通知权限，跳过发送')
+      }
+    }
+    wasRunning.value = isRunning
+  }
+)
 </script>
 
 <style scoped>
