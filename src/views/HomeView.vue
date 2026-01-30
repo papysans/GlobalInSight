@@ -255,7 +255,7 @@
 
               <!-- Screen Content -->
               <div class="relative cursor-pointer group flex-1 flex flex-col overflow-hidden bg-white"
-                @click="switchPhoneImage" title="点击切换配图风格">
+                @click="switchPhoneImage" title="点击切换配图">
 
                 <!-- 可滚动内容区 -->
                 <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
