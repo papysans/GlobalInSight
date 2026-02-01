@@ -25,34 +25,40 @@ class HotNewsScheduler:
         self.last_run_time: Optional[datetime] = None
         self.last_result: Optional[dict] = None
     
-    def start(self, hour: int = 9, minute: int = 0):
+    def start(self, interval_hours: Optional[int] = None):
         """
         启动定时任务
         
         Args:
-            hour: 执行时间（小时，0-23）
-            minute: 执行时间（分钟，0-59）
+            interval_hours: 刷新间隔（小时），None 则从配置读取
         """
         if self.is_running:
             logger.warning("定时任务已经在运行中")
             return
         
+        # 从配置读取刷新间隔
+        if interval_hours is None:
+            from app.config import settings
+            interval_hours = settings.HOT_NEWS_CONFIG.get("fetch_interval_hours", 4)
+        
         self.scheduler = AsyncIOScheduler()
         
-        # 每天指定时间执行一次
-        trigger = CronTrigger(hour=hour, minute=minute)
+        # 每隔指定小时数执行一次
         self.scheduler.add_job(
             self._collect_news_job,
-            trigger=trigger,
+            trigger='interval',
+            hours=interval_hours,
             id='hot_news_collection',
-            name='热点新闻收集任务',
-            replace_existing=True
+            name=f'热点新闻收集任务（每{interval_hours}小时）',
+            replace_existing=True,
+            next_run_time=None,  # 立即执行第一次
         )
         
         self.scheduler.start()
         self.is_running = True
         
-        logger.info(f"热点新闻定时任务已启动，将在每天 {hour:02d}:{minute:02d} 执行")
+        logger.info(f"热点新闻定时任务已启动，将每 {interval_hours} 小时执行一次")
+        logger.info(f"首次执行将在启动后立即开始")
     
     def stop(self):
         """停止定时任务"""

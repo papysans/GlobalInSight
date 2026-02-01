@@ -30,8 +30,9 @@ class HotNewsCacheService:
         self._memory_caches: Dict[str, Dict] = {}  # key -> cached_data
         self._cache_times: Dict[str, datetime] = {}  # key -> cache_time
         
-        # 缓存过期时间（分钟）
-        self.cache_expiry_minutes = 30
+        # 缓存过期时间（分钟）- 从配置读取，默认 4 小时
+        from app.config import settings
+        self.cache_expiry_minutes = settings.HOT_NEWS_CONFIG.get("cache_ttl_minutes", 240)
     
     def _get_cache_file_path(self, cache_key: str = "default") -> Path:
         """获取缓存文件路径（按日期和缓存键）"""

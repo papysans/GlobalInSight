@@ -271,7 +271,7 @@ class Config:
         "enabled": True,
         "platform_sources": [],  # Empty list means collect all platforms
         "fetch_interval_hours": 4,
-        "cache_ttl_minutes": 30,
+        "cache_ttl_minutes": 240,  # 4 hours = 240 minutes
         "max_items_per_platform": 100,
     }
 

@@ -30,8 +30,8 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
     logger.info("🚀 启动热点新闻定时任务...")
-    # 默认每天上午9点执行，可以根据需要修改
-    hot_news_scheduler.start(hour=9, minute=0)
+    # 使用配置中的刷新间隔（默认 4 小时）
+    hot_news_scheduler.start()
     
     yield
     
