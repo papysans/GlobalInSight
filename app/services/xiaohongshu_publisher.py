@@ -208,7 +208,7 @@ class XiaohongshuPublisher:
         Returns:
             登录状态信息
         """
-        result = await self._call_mcp("check_login_status", timeout=10.0)
+        result = await self._call_mcp("check_login_status", timeout=30.0)
 
         if result.get("success"):
             # 解析 MCP 返回的登录状态
@@ -318,23 +318,40 @@ class XiaohongshuPublisher:
         Returns:
             服务状态信息
         """
-        # 检查服务可用性
-        is_available = await self.is_available()
-        if not is_available:
+        try:
+            # 检查服务可用性
+            is_available = await self.is_available()
+            if not is_available:
+                return {
+                    "mcp_available": False,
+                    "login_status": False,
+                    "message": "小红书 MCP 服务未启动或无法连接（端口 18060）",
+                }
+
+            # 检查登录状态（增加超时处理）
+            try:
+                login_result = await self.check_login_status()
+                
+                return {
+                    "mcp_available": True,
+                    "login_status": login_result.get("logged_in", False),
+                    "message": login_result.get("message", ""),
+                }
+            except Exception as e:
+                logger.warning(f"[XHS] Login status check failed: {e}")
+                # 服务可用但登录检查失败，可能是超时或其他问题
+                return {
+                    "mcp_available": True,
+                    "login_status": False,
+                    "message": f"登录状态检查失败: {str(e)}",
+                }
+        except Exception as e:
+            logger.error(f"[XHS] Status check error: {e}")
             return {
                 "mcp_available": False,
                 "login_status": False,
-                "message": "小红书 MCP 服务未启动或无法连接",
+                "message": f"状态检查异常: {str(e)}",
             }
-
-        # 检查登录状态
-        login_result = await self.check_login_status()
-
-        return {
-            "mcp_available": True,
-            "login_status": login_result.get("logged_in", False),
-            "message": login_result.get("message", ""),
-        }
 
 
 # 全局单例

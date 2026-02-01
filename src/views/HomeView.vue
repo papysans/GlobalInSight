@@ -1316,12 +1316,17 @@ const checkXhsStatus = async () => {
       message: res.message,
       loading: false
     }
+    
+    // 如果服务可用但未登录，提示用户
+    if (res.mcp_available && !res.login_status) {
+      console.warn('[HomeView] XHS MCP 服务已启动，但未登录小红书')
+    }
   } catch (e) {
     console.warn('[HomeView] Failed to check XHS status', e)
     xhsStatus.value = {
       mcp_available: false,
       login_status: false,
-      message: '无法连接到后端服务',
+      message: e.message || '无法连接到后端服务',
       loading: false
     }
   }
@@ -1475,7 +1480,11 @@ const publishToXhs = async () => {
 onMounted(() => {
   refreshTrending()
   hydrateHotTopicDraft()
-  checkXhsStatus()
+  
+  // 延迟检查 XHS 状态，避免与其他请求并发
+  setTimeout(() => {
+    checkXhsStatus()
+  }, 500)
   
   // 请求浏览器通知权限
   requestNotificationPermission()

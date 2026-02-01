@@ -1267,12 +1267,20 @@ async def get_xhs_status():
     from app.services.xiaohongshu_publisher import xiaohongshu_publisher
     from app.schemas import XhsStatusResponse
     
-    status = await xiaohongshu_publisher.get_status()
-    return XhsStatusResponse(
-        mcp_available=status.get("mcp_available", False),
-        login_status=status.get("login_status", False),
-        message=status.get("message", "")
-    )
+    try:
+        status = await xiaohongshu_publisher.get_status()
+        return XhsStatusResponse(
+            mcp_available=status.get("mcp_available", False),
+            login_status=status.get("login_status", False),
+            message=status.get("message", "")
+        )
+    except Exception as e:
+        logger.error(f"[XHS Status] Error: {e}")
+        return XhsStatusResponse(
+            mcp_available=False,
+            login_status=False,
+            message=f"检查状态失败: {str(e)}"
+        )
 
 
 @router.post("/xhs/publish")
