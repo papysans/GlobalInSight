@@ -35,6 +35,18 @@ class Config:
     VOLC_ACCESS_KEY = os.getenv("VOLC_ACCESS_KEY", "")
     VOLC_SECRET_KEY = os.getenv("VOLC_SECRET_KEY", "")
 
+    # --- 国际财经新闻 API Keys ---
+    FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
+    NEWSAPI_API_KEY = os.getenv("NEWSAPI_API_KEY", "")
+    ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+    MARKETAUX_API_KEY = os.getenv("MARKETAUX_API_KEY", "")
+
+    # --- 投行研报 API Keys ---
+    # Benzinga 和 Seeking Alpha 已移除（付费源）
+
+    # --- Tushare Token ---
+    TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "")
+
     # --- 6. Zhipu AI ---
     _zhipu_keys_str = os.getenv("ZHIPU_API_KEYS", "")
     ZHIPU_API_KEYS = [k.strip() for k in _zhipu_keys_str.split(",") if k.strip()]
@@ -273,6 +285,35 @@ class Config:
         "fetch_interval_hours": 4,
         "cache_ttl_minutes": 30,
         "max_items_per_platform": 100,
+    }
+
+    # --- 股票资讯数据源配置 ---
+    STOCK_NEWS_CONFIG = {
+        "enabled": True,
+        "sources": ["akshare", "sina", "10jqka", "xueqiu", "tushare"],
+        "cache_ttl_minutes": 240,
+        "max_items_per_source": 50,
+    }
+
+    # --- 国际财经新闻数据源配置 ---
+    INTERNATIONAL_NEWS_CONFIG = {
+        "enabled": True,
+        "sources": ["finnhub", "newsapi", "alpha_vantage", "gdelt", "google_rss", "marketaux"],
+        "cache_ttl_minutes": 240,
+        "max_items_per_source": 30,
+        "translate_batch_size": 20,
+    }
+
+    # --- 投行研报数据源配置 ---
+    RESEARCH_REPORT_CONFIG = {
+        "enabled": True,
+        "sources_by_tier": {
+            "tier1": ["finnhub", "yahoo"],
+            "tier2": ["finviz", "zacks"],
+            "tier4": ["tipranks", "marketbeat", "simplywallst", "last10k", "wisesheets"],
+        },
+        "cache_ttl_minutes": 240,
+        "max_items_per_source": 20,
     }
 
     # --- 小红书 MCP 发布设置 ---

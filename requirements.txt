@@ -38,3 +38,14 @@ wordcloud>=1.9.0
 jieba>=0.42.1
 matplotlib>=3.7.0
 numpy>=1.24.0
+
+# --- 股票资讯与行情推演平台新增依赖 ---
+akshare>=1.14.0
+tushare>=1.4.0
+pypinyin>=0.51.0
+finnhub-python>=2.4.0
+newsapi-python>=0.2.7
+alpha_vantage>=2.3.1
+feedparser>=6.0.0
+yfinance>=0.2.0
+httpx[socks]>=0.26.0

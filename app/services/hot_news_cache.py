@@ -30,8 +30,9 @@ class HotNewsCacheService:
         self._memory_caches: Dict[str, Dict] = {}  # key -> cached_data
         self._cache_times: Dict[str, datetime] = {}  # key -> cache_time
         
-        # 缓存过期时间（分钟）
-        self.cache_expiry_minutes = 30
+        # 缓存过期时间（分钟）— 应大于定时采集间隔以避免重启时重复采集
+        # 股票资讯每小时增量检查，国际新闻/研报同频，因此设为 240 分钟（4小时）
+        self.cache_expiry_minutes = 240
     
     def _get_cache_file_path(self, cache_key: str = "default") -> Path:
         """获取缓存文件路径（按日期和缓存键）"""

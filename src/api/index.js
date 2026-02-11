@@ -142,19 +142,8 @@ export const api = {
     },
 
     /**
-     * 执行完整工作流分析
-     * @param {Object} payload - { topic, urls?, platforms? }
-     * @param {Function} onMessage - SSE 消息回调
+     * 执行行情推演（SSE 流式）— 旧接口已移除，使用 analyzeStock
      */
-    async analyze(payload, onMessage) {
-        return streamRequest(
-            "/analyze", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        },
-            onMessage
-        );
-    },
 
     /**
      * 获取配置
@@ -189,92 +178,6 @@ export const api = {
         return request("/user-settings", {
             method: "PUT",
             body: JSON.stringify(payload),
-        });
-    },
-
-    /**
-     * 获取历史输出文件列表
-     * @param {number} limit - 数量限制
-     * @param {number} offset - 偏移量
-     */
-    async getOutputFiles(limit = 20, offset = 0) {
-        return request(`/outputs?limit=${limit}&offset=${offset}`);
-    },
-
-    /**
-     * 获取指定输出文件内容
-     * @param {string} filename - 文件名
-     */
-    async getOutputFile(filename) {
-        return request(`/outputs/${encodeURIComponent(filename)}`);
-    },
-
-    /**
-     * 获取热榜（TopHub）数据
-     * @param {number} limit - 返回条数
-     * @param {string} source - "hot"=全榜，"all"=全部榜单，其它=指定source_id
-     * @param {boolean} forceRefresh - 是否跳过缓存强制刷新
-     */
-    async getHotNews(limit = 10, source = "hot", forceRefresh = false) {
-        const params = new URLSearchParams({
-            limit: String(limit),
-            source,
-            force_refresh: String(forceRefresh),
-        });
-        return request(`/hotnews?${params.toString()}`);
-    },
-
-    /**
-     * 获取工作流状态
-     */
-    async getWorkflowStatus() {
-        return request("/workflow/status");
-    },
-
-    /**
-     * 生成舆论对比数据
-     * @param {Object} payload - { topic, insight }
-     */
-    async generateContrastData(payload) {
-        return request("/generate-data/contrast", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-    },
-
-    /**
-     * 生成情感光谱数据
-     * @param {Object} payload - { topic, insight }
-     */
-    async generateSentimentData(payload) {
-        return request("/generate-data/sentiment", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-    },
-
-    /**
-     * 生成关键词数据
-     * @param {Object} payload - { topic, crawler_data? }
-     */
-    async generateKeywordsData(payload) {
-        return request("/generate-data/keywords", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-    },
-
-    /**
-     * 获取热点新闻列表（对齐后的数据）
-     * @param {Object} payload - { platforms?: string[], force_refresh?: boolean }
-     */
-    async getHotNewsTrending(payload = {}) {
-        return request("/hot-news/collect", {
-            method: "POST",
-            body: JSON.stringify({
-                platforms: payload.platforms || ["all"],
-                force_refresh: payload.force_refresh || false,
-            }),
         });
     },
 
@@ -319,6 +222,244 @@ export const api = {
         return request("/validate-model", {
             method: "POST",
             body: JSON.stringify(payload),
+        });
+    },
+
+    // ========== 股票资讯 API ==========
+
+    /**
+     * 获取热榜聚类数据（话题聚类 + 跨平台对齐）
+     * @param {boolean} [forceRefresh=false] - 是否跳过缓存
+     */
+    async getHotNews(forceRefresh = false) {
+        const params = new URLSearchParams({ force_refresh: String(forceRefresh) });
+        return request(`/stock/hot?${params.toString()}`);
+    },
+
+    /**
+     * 获取股票资讯列表
+     * @param {Object} params - { limit, source, category, forceRefresh }
+     * @param {number} [params.limit=50] - 返回条数
+     * @param {string} [params.source] - 按数据源筛选
+     * @param {string} [params.category] - 按类别筛选 domestic/international/research_report
+     * @param {boolean} [params.forceRefresh=false] - 是否跳过缓存
+     */
+    async getStockNews({ limit = 50, source, category, forceRefresh = false } = {}) {
+        const params = new URLSearchParams({ limit: String(limit), force_refresh: String(forceRefresh) });
+        if (source) params.set("source", source);
+        if (category) params.set("category", category);
+        return request(`/stock/news?${params.toString()}`);
+    },
+
+    /**
+     * 获取支持的数据源列表及状态
+     */
+    async getStockSources() {
+        return request("/stock/sources");
+    },
+
+    /**
+     * 触发行情推演（SSE 流式）
+     * @param {Object} payload - { topic, debate_rounds, news_items? }
+     * @param {Function} onMessage - SSE 消息回调
+     */
+    async analyzeStock(payload, onMessage) {
+        return streamRequest(
+            "/stock/analyze",
+            { method: "POST", body: JSON.stringify(payload) },
+            onMessage,
+        );
+    },
+
+    /**
+     * 获取历史推演记录列表
+     * @param {number} [limit=20]
+     * @param {number} [offset=0]
+     */
+    async getStockAnalysisHistory(limit = 20, offset = 0) {
+        return request(`/stock/analyze/history?limit=${limit}&offset=${offset}`);
+    },
+
+    /**
+     * 获取单条推演结果详情
+     * @param {string} analysisId
+     */
+    async getStockAnalysisDetail(analysisId) {
+        return request(`/stock/analyze/${encodeURIComponent(analysisId)}`);
+    },
+
+    // ========== 投行研报 API ==========
+
+    /**
+     * 获取指定股票的共识评级
+     * @param {string} symbol - 股票代码
+     */
+    async getConsensusRating(symbol) {
+        return request(`/stock/research/consensus/${encodeURIComponent(symbol)}`);
+    },
+
+    /**
+     * 获取指定股票的分析师评级列表
+     * @param {string} symbol - 股票代码
+     * @param {string} [source] - 按数据源筛选
+     */
+    async getAnalystRatings(symbol, source) {
+        const params = new URLSearchParams();
+        if (source) params.set("source", source);
+        const qs = params.toString();
+        return request(`/stock/research/ratings/${encodeURIComponent(symbol)}${qs ? '?' + qs : ''}`);
+    },
+
+    // ========== 社交内容生成与发布 API ==========
+
+    /**
+     * 根据推演结果生成指定平台格式内容
+     * @param {string} analysisId - 推演结果 ID
+     * @param {string} platform - 目标平台 xhs/weibo/xueqiu/zhihu
+     */
+    async generateSocialContent(analysisId, platform) {
+        return request("/content/generate", {
+            method: "POST",
+            body: JSON.stringify({ analysis_id: analysisId, platform }),
+        });
+    },
+
+    /**
+     * 生成每日股市速报
+     * @param {Object} [params] - { platform, include_analysis }
+     */
+    async generateDailyReport(params = {}) {
+        return request("/content/daily-report", {
+            method: "POST",
+            body: JSON.stringify(params),
+        });
+    },
+
+    /**
+     * 获取当日最新速报内容
+     */
+    async getDailyReportLatest() {
+        return request("/content/daily-report/latest");
+    },
+
+    /**
+     * 获取历史速报列表
+     * @param {number} [limit=20]
+     * @param {number} [offset=0]
+     */
+    async getDailyReportHistory(limit = 20, offset = 0) {
+        return request(`/content/daily-report/history?limit=${limit}&offset=${offset}`);
+    },
+
+    /**
+     * 一键发布速报到全平台
+     */
+    async publishDailyReportAllPlatforms() {
+        return request("/content/daily-report/publish-all", { method: "POST" });
+    },
+
+    /**
+     * 发布指定内容到小红书
+     * @param {string} contentId - 内容 ID
+     */
+    async publishToXiaohongshu(contentId) {
+        return request(`/content/publish/xhs?content_id=${encodeURIComponent(contentId)}`, {
+            method: "POST",
+        });
+    },
+
+    /**
+     * 获取社交内容历史记录
+     * @param {number} [limit=20]
+     * @param {number} [offset=0]
+     * @param {string} [platform] - 按平台筛选
+     */
+    async getSocialContentHistory(limit = 20, offset = 0, platform) {
+        const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        if (platform) params.set("platform", platform);
+        return request(`/content/history?${params.toString()}`);
+    },
+
+    // ========== 散户情绪分析 API ==========
+
+    /**
+     * 获取情绪指数
+     * @param {string|null} [stockCode=null] - 股票代码，为空时返回大盘情绪
+     */
+    async getSentimentIndex(stockCode = null) {
+        if (stockCode) {
+            return request(`/sentiment/index/${encodeURIComponent(stockCode)}`);
+        }
+        return request("/sentiment/index");
+    },
+
+    /**
+     * 获取情绪指数历史数据
+     * @param {string|null} [stockCode=null] - 股票代码，为空时返回大盘历史
+     * @param {number} [days=30] - 历史天数
+     */
+    async getSentimentHistory(stockCode = null, days = 30) {
+        const params = new URLSearchParams({ days: String(days) });
+        if (stockCode) params.set("stock_code", stockCode);
+        return request(`/sentiment/history?${params.toString()}`);
+    },
+
+    /**
+     * 获取各情绪数据源采集状态
+     */
+    async getSentimentStatus() {
+        return request("/sentiment/status");
+    },
+
+    /**
+     * 手动触发一轮情绪采集和分析
+     * @param {Object} [payload] - { stock_code, time_window_hours }
+     */
+    async triggerSentimentAnalysis(payload = {}) {
+        return request("/sentiment/trigger", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    /**
+     * 更新情绪分析各分项权重配置
+     * @param {Object} weights - { comment_sentiment, baidu_vote, akshare_aggregate, news_sentiment, margin_trading }
+     */
+    async updateSentimentWeights(weights) {
+        return request("/sentiment/weights", {
+            method: "PUT",
+            body: JSON.stringify(weights),
+        });
+    },
+
+    // ========== 数据源管理 API ==========
+
+    /**
+     * 获取所有数据源配置状态
+     */
+    async getDataSourceConfig() {
+        return request("/stock/datasource/config");
+    },
+
+    /**
+     * 保存数据源配置
+     * @param {Object} config - { sources: DataSourceConfig[] }
+     */
+    async saveDataSourceConfig(config) {
+        return request("/stock/datasource/config", {
+            method: "PUT",
+            body: JSON.stringify(config),
+        });
+    },
+
+    /**
+     * 测试指定数据源连通性
+     * @param {string} sourceId - 数据源 ID
+     */
+    async testDataSourceConnection(sourceId) {
+        return request(`/stock/datasource/test/${encodeURIComponent(sourceId)}`, {
+            method: "POST",
         });
     },
 };

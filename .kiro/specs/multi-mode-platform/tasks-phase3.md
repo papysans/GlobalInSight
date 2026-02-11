@@ -1,0 +1,231 @@
+﻿# 实现计划：阶段三  散户情绪分析全链路
+
+> 本文件是 tasks.md 拆分后的子文件。完整实现计划包含：
+> - [tasks-phase1.md](tasks-phase1.md)  阶段一：后端基础（数据模型、爬虫、API、推演）任务 1-7
+> - [tasks-phase2.md](tasks-phase2.md)  阶段二：社交内容、合规、前端、清理旧代码 任务 8-19
+> - [tasks-phase3.md](tasks-phase3.md)  阶段三：散户情绪分析全链路 任务 20-29
+
+- [x] 20. 后端：散户情绪爬虫基础设施
+  - [x] 20.1 在 `app/schemas.py` 中新增 SentimentComment、SentimentSnapshot、SentimentContext、SentimentCrawlConfig、SentimentSourceStatus、MixedSentimentMetrics 数据模型
+    - SentimentComment：id、content、source_platform、stock_code、author_nickname、published_time、content_hash、sentiment_label、sentiment_score
+    - SentimentSnapshot：id、stock_code、index_value、comment_sentiment_score、baidu_vote_score、akshare_aggregate_score、news_sentiment_score、margin_trading_score、fear_ratio、greed_ratio、neutral_ratio、sample_count、data_source_availability、label、snapshot_time
+    - SentimentContext：index_value、label、trend_direction、sample_count、sub_scores（Dict）、source_availability（Dict）
+    - MixedSentimentMetrics：baidu_vote_score、akshare_aggregate_score、news_sentiment_score、margin_trading_score、xueqiu_heat、source_availability
+    - SentimentCrawlConfig：interval_hours、time_window_hours、proxies、source_enabled（评论源）、aggregate_source_enabled（聚合指标源）、sentiment_weights（各分项权重）、spam_keywords
+    - SentimentSourceStatus：source_id、source_type（crawler/aggregate）、last_collected、success_rate、status、comment_count、latest_value
+    - _Requirements: 9.2, 9.15, 9.17, 9.19, 9.29_
+  - [x] 20.2 在 `app/models.py` 中新增 SentimentCommentDB 和 SentimentSnapshotDB ORM 模型
+    - SentimentSnapshotDB 新增字段：comment_sentiment_score、baidu_vote_score、akshare_aggregate_score、news_sentiment_score、margin_trading_score、data_source_availability（TEXT JSON）
+    - 生成 Alembic 迁移脚本（`alembic revision --autogenerate -m "add_sentiment_tables"`）
+    - _Requirements: 9.19_
+  - [x] 20.3 创建 `app/services/proxy_pool_manager.py`，实现 ProxyPoolManager 类
+    - 支持 HTTP/SOCKS5 代理列表配置
+    - 实现 get_random_proxy()：随机选择可用代理，排除已失败代理
+    - 实现 mark_failed(proxy)：标记代理为失败
+    - 实现 reset_failed()：定期重置失败列表
+    - 所有代理均失败时返回 None（回退到直连模式）
+    - _Requirements: 9.5_
+  - [x] 20.4 为 ProxyPoolManager 编写属性测试
+    - **Property 35: 代理池轮换与排除**
+    - **Validates: Requirements 9.5**
+  - [x] 20.5 创建 `app/services/cookie_pool_manager.py`，实现 CookiePoolManager 类
+    - 维护多组 Cookie（按数据源分组）
+    - 实现 get_cookie(source)：轮换返回有效 Cookie
+    - 实现 mark_invalid(source, index)：标记失效 Cookie
+    - 失效 Cookie 不再被返回
+    - _Requirements: 9.7_
+  - [x] 20.6 为 CookiePoolManager 编写属性测试
+    - **Property 37: Cookie 池轮换与失效排除**
+    - **Validates: Requirements 9.7**
+  - [x] 20.7 创建 `app/services/adaptive_rate_controller.py`，实现 AdaptiveRateController 类
+    - 实现 detect_anti_crawl(status_code, response_body)：检测 HTTP 403/429、验证码页面、空响应
+    - 实现 on_anti_crawl_detected(source)：cooldown 翻倍（上限 60 秒）
+    - 实现 on_success(source)：连续 3 次成功后恢复 base_cooldown
+    - 实现 get_cooldown(source)：获取当前 cooldown 值
+    - _Requirements: 9.6_
+  - [x] 20.8 为 AdaptiveRateController 编写属性测试
+    - **Property 36: 请求频率自适应控制状态机**
+    - **Validates: Requirements 9.6**
+
+- [x] 20A. 后端：混合情绪数据源服务
+  - [x] 20A.1 创建 `app/services/mixed_sentiment_data_service.py`，实现 MixedSentimentDataService 类
+    - 所有 AKShare 调用使用 `asyncio.to_thread()` 包装，避免阻塞事件循环
+    - 定义 DEFAULT_SENTIMENT_WEIGHTS 默认加权配置（评论 40%、百度投票 20%、AKShare 聚合 15%、新闻情绪 15%、融资融券 10%）
+    - 实现 fetch_akshare_comment_metrics(stock_code)：调用 AKShare `stock_comment_em()`、`stock_comment_detail_scrd_focus_em()`、`stock_hot_rank_em()`、`stock_hot_keyword_em()`，归一化到 0-100
+    - 实现 fetch_baidu_vote(stock_code)：调用 AKShare `stock_zh_vote_baidu(stock_code)`，返回看涨比例 × 100 作为得分
+    - 实现 fetch_news_sentiment_index()：调用 AKShare `index_news_sentiment_scope()`，归一化到 0-100
+    - 实现 fetch_margin_trading_data(stock_code)：调用 AKShare `stock_margin_detail_szse()` / `stock_margin_detail_sse()`，基于融资净买入变化率归一化到 0-100
+    - 实现 fetch_xueqiu_heat_data(stock_code)：调用 AKShare `stock_hot_follow_xq()`、`stock_hot_tweet_xq()`，作为 AKShare 聚合分的补充
+    - 实现 collect_all_metrics(stock_code)：并发采集所有聚合指标，每个源独立 try/except，失败返回 None
+    - 实现 calculate_weighted_index(comment_score, metrics, custom_weights)：加权模型计算综合指数，不可用源权重自动重分配
+    - 实现 update_weights(new_weights)：支持从设置页面更新权重配置
+    - _Requirements: 9.10, 9.11, 9.12, 9.13, 9.14, 9.17_
+  - [x] 20A.2 为 MixedSentimentDataService 编写属性测试
+    - **Property 45: 混合数据源权重重分配正确性**（effective_weights 总和为 1.0）
+    - **Property 46: AKShare 聚合指标归一化范围**（非 None 值在 0-100 范围内）
+    - **Property 40: 情绪指数计算正确性（加权模型）**
+    - **Validates: Requirements 9.10, 9.11, 9.12, 9.13, 9.17**
+
+- [x] 21. 后端：散户情绪爬虫服务
+  - [x] 21.1 创建 `app/services/sentiment_crawler.py`，实现 SentimentCrawler 类
+    - 集成 ProxyPoolManager、CookiePoolManager、AdaptiveRateController
+    - 实现 fetch_eastmoney_comments(stock_code, time_window_hours)：采集东方财富股吧评论（通过 HTTP 抓取股吧帖子列表页，AKShare `stock_comment_em()` 仅提供聚合指标不含原始评论文本）
+    - 实现 fetch_xueqiu_comments(stock_code, time_window_hours)：采集雪球社区评论（需 Cookie + User-Agent 轮换，反爬较严格）
+    - 实现 fetch_10jqka_comments(stock_code, time_window_hours)：采集同花顺社区评论（需 JS 逆向处理 Cookie 加密，维护成本较高但初始版本一并实现）
+    - 所有采集方法使用代理池和 Cookie 池，通过 AdaptiveRateController 控制频率
+    - 增量采集：仅获取 time_window_hours 内的新评论
+    - 实现 clean_comments(comments)：去除纯表情/纯符号、垃圾关键词黑名单过滤、content_hash 去重
+    - 实现封禁降级：连续 3 次失败暂停该源 30 分钟，is_source_banned()/ban_source() 方法
+    - 实现 collect_comments(stock_code, source_ids, time_window_hours)：并发采集所有启用数据源，跳过封禁源
+    - 实现 get_source_status()：返回各数据源采集状态
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9_
+  - [x] 21.2 为 SentimentCrawler 编写属性测试
+    - **Property 33: 增量采集时间窗口过滤**
+    - **Property 34: 个股评论筛选一致性**
+    - **Property 38: 数据源封禁降级**
+    - **Property 39: 评论清洗去除垃圾和重复**
+    - **Validates: Requirements 9.3, 9.4, 9.8, 9.9**
+
+- [x] 22. 后端：散户情绪分析服务
+  - [x] 22.1 创建 `app/services/sentiment_analyzer.py`，实现 SentimentAnalyzer 类
+    - 集成 SentimentCrawler 和 MixedSentimentDataService
+    - 实现 analyze_batch(comments)：批量调用 LLM 情绪分类（每批最多 50 条），标记 fear/greed/neutral + 0-100 分数
+    - 实现 calculate_index(comments, mixed_metrics, custom_weights)：先计算评论情绪分（greed_count / total × 100），再调用 mixed_data_service.calculate_weighted_index() 加权合并所有数据源，生成包含综合指数和各分项得分的 SentimentSnapshot
+    - 实现 get_latest_index(stock_code)：从数据库查询最新快照
+    - 实现 get_index_history(stock_code, days)：获取历史快照列表（按时间升序）
+    - 实现 run_analysis_cycle(stock_code, time_window_hours)：完整流程——采集评论 → LLM 分析 → 采集聚合指标 → 加权计算综合指数 → 持久化快照（含各分项得分和数据源可用性）→ 持久化评论
+    - 实现 get_sentiment_context(stock_code)：获取情绪上下文（综合指数、各分项得分、趋势方向、样本量、数据源可用性）
+    - 实现 cleanup_old_comments(retention_days=90)：清理旧评论数据，保留快照
+    - _Requirements: 9.15, 9.16, 9.17, 9.18, 9.19, 9.20, 9.31_
+  - [x] 22.2 为情绪分析服务编写属性测试
+    - **Property 32: 散户评论数据完整性与情绪标签有效性**
+    - **Property 40: 情绪指数计算正确性（加权模型）**
+    - **Property 41: 情绪快照持久化往返一致性**（含各分项得分字段）
+    - **Property 42: 关键事件节点分类**
+    - **Property 44: 旧评论清理保留快照**
+    - **Validates: Requirements 9.2, 9.15, 9.17, 9.19, 9.24, 9.31**
+
+- [x] 23. 后端：情绪分析 API 端点与定时任务
+  - [x] 23.1 创建 `app/api/sentiment_endpoints.py`，实现情绪分析相关路由
+    - GET `/api/sentiment/index`：获取大盘整体情绪指数（含综合指数和各分项得分）
+    - GET `/api/sentiment/index/{stock_code}`：获取个股情绪指数（含综合指数和各分项得分）
+    - GET `/api/sentiment/history`：获取情绪指数历史数据，支持 stock_code/days 参数
+    - GET `/api/sentiment/comments`：获取最近评论样本
+    - GET `/api/sentiment/status`：获取各数据源采集状态（分评论爬虫源和聚合指标源两组）
+    - POST `/api/sentiment/trigger`：手动触发一轮情绪采集和分析
+    - PUT `/api/sentiment/weights`：更新各分项权重配置
+    - 在 `app/main.py` 中注册路由（`/api/sentiment/` 前缀）
+    - _Requirements: 9.18, 9.21, 9.29, 9.30_
+  - [x] 23.2 更新 `app/services/scheduler_service.py`，新增情绪采集定时任务
+    - 新增 run_sentiment_analysis() 定时任务（默认每 2 小时）
+    - 新增 update_sentiment_schedule(interval_hours) 方法
+    - 在 start() 中注册 sentiment_analysis job
+    - _Requirements: 9.15_
+
+- [x] 24. 后端：行情推演集成情绪数据
+  - [x] 24.1 更新 `app/services/stock_analysis_service.py`，集成情绪分析
+    - 在推演流程开始时调用 sentiment_analyzer.get_sentiment_context(stock_code) 获取情绪上下文（含综合指数和各分项得分）
+    - 在影响分析 Agent 的 prompt 中注入混合数据源情绪数据（综合指数、评论情绪分、百度投票、新闻情绪、融资融券信号）
+    - StockAnalysisResult 新增 sentiment_context 字段（包含 sub_scores 和 source_availability）
+    - 更新 StockAnalysisResultDB 模型新增 sentiment_context 列（JSON 序列化）
+    - _Requirements: 9.25, 9.26, 9.27_
+  - [x] 24.2 为推演集成情绪数据编写属性测试
+    - **Property 43: 推演结果包含情绪上下文**（含 sub_scores 和 source_availability）
+    - **Validates: Requirements 9.26**
+
+- [x] 25. Checkpoint - 确保散户情绪分析后端功能正常
+  - 确保所有测试通过，如有问题请向用户确认。
+
+- [x] 26. 前端：情绪分析 API 层和状态管理
+  - [x] 26.1 在 `src/api/index.js` 中新增情绪分析相关 API 方法
+    - getSentimentIndex(stockCode)、getSentimentHistory(stockCode, days)
+    - getSentimentStatus()、triggerSentimentAnalysis()
+    - updateSentimentWeights(weights)
+    - _Requirements: 9.21, 9.22, 9.29, 9.30_
+  - [x] 26.2 创建 `src/stores/sentiment.js`，实现情绪分析状态管理
+    - state：marketIndex（含 sub_scores）、stockIndices、marketHistory、stockHistory、sourceStatus（分 crawler 和 aggregate 两组）、sentimentWeights、loading、error
+    - actions：fetchMarketIndex()、fetchStockIndex(stockCode)、fetchHistory(stockCode, days)、fetchSourceStatus()、triggerAnalysis()、updateWeights(weights)
+    - _Requirements: 9.21, 9.22, 9.23, 9.29_
+
+- [x] 27. 前端：情绪指数可视化组件
+  - [x] 27.1 安装 ECharts 依赖（`npm install echarts vue-echarts`）
+    - _Requirements: 9.17_
+  - [x] 27.2 创建 `src/components/SentimentGauge.vue` 仪表盘组件
+    - 使用 ECharts gauge 图表展示情绪指数（0-100）
+    - 颜色渐变：红色（极度恐慌）→ 黄色（中性）→ 绿色（极度贪婪）
+    - 支持 mini 模式（推演页面旁）和 full 模式（热榜页面顶部）
+    - Props: indexValue、label、size
+    - _Requirements: 9.16, 9.23_
+  - [x] 27.3 创建 `src/components/SentimentChart.vue` 时序图表组件
+    - 使用 ECharts 折线图展示情绪指数历史趋势（K 线风格）
+    - X 轴时间、Y 轴指数值（0-100），背景色分区
+    - 支持缩放（dataZoom）和时间范围选择（7/14/30 天）
+    - 支持切换显示综合指数或各分项指数（评论情绪/百度投票/AKShare 聚合/新闻情绪/融资融券），多线叠加对比
+    - 关键事件节点标注（指数 > 80 或 < 20）
+    - 鼠标悬停 tooltip 显示综合指数、各分项得分和代表性评论摘要
+    - Props: historyData、stockCode、showSubScores
+    - _Requirements: 9.22, 9.24_
+
+- [x] 28. 前端：集成情绪组件到现有页面
+  - [x] 28.1 更新 `src/views/StockHotView.vue`，集成情绪仪表盘
+    - 页面顶部新增大盘情绪仪表盘（SentimentGauge full 模式）
+    - 个股详情面板中新增个股情绪指数和趋势图（SentimentChart）
+    - _Requirements: 9.16, 9.18_
+  - [x] 28.2 更新 `src/views/StockAnalysisView.vue`，集成情绪数据
+    - 输入区域旁新增迷你情绪仪表盘（SentimentGauge mini 模式）
+    - 推演结果中展示 sentiment_context 数据（情绪指数、趋势方向）
+    - _Requirements: 9.23, 9.21_
+  - [x] 28.3 更新 `src/views/SettingsView.vue`，新增情绪采集配置
+    - 情绪采集频率设置（小时选择器，默认 2 小时）
+    - 代理池配置（支持添加/删除代理地址列表）
+    - 评论采集源启用/禁用开关（东方财富股吧、雪球社区、同花顺社区）
+    - 聚合指标源启用/禁用开关（AKShare 千股千评、百度投票、新闻情绪指数、融资融券、雪球热度）
+    - 各分项权重配置（滑块或数字输入，总和自动归一化为 100%）
+    - 采集状态监控面板（评论爬虫状态 + 聚合指标 AKShare 调用状态，各数据源最近采集时间、成功率、当前状态）
+    - _Requirements: 9.29, 9.30_
+
+- [x] 29. Final Checkpoint - 全部功能验证（含散户情绪分析）
+  - 确保所有测试通过，前后端联调正常，系统无引用缺失错误，如有问题请向用户确认。
+  - _Requirements: 6.8_
+
+## 备注
+
+- 所有任务均为必选，包括属性测试
+- 每个任务引用了具体的需求编号以确保可追溯性
+- Checkpoint 任务用于阶段性验证
+- 属性测试使用 Hypothesis（Python）库，每个测试至少 100 次迭代
+- **散户情绪分析是系统核心引擎**：任务 20-24（情绪爬虫基础设施、混合数据源服务、情绪爬虫、情绪分析、推演集成）虽然编号靠后，但它们是系统的核心基础设施层，为行情推演（任务 5）和社交内容生成（任务 8）提供数据支撑。任务 5.1 的推演服务已内置情绪数据获取作为 Step 0，任务 8.2 的内容生成已内置情绪数据融入各平台内容。如果开发资源允许，建议将任务 20-22（情绪后端核心）提前到任务 5 之前实现，确保推演服务从一开始就能引用情绪数据
+- **任务执行顺序说明**：任务 13-14（创建新前端视图 StockHotView/StockAnalysisView）必须在任务 18-19（清理旧代码）之前完成，确保新视图就绪后再移除旧代码，避免系统出现空白期
+- 任务 9 为需求 5A 新增的合规脱敏服务，插入在社交内容生成（任务 8）之后、社交内容 API（任务 10）之前
+- 任务 2A 为国际财经新闻采集服务，任务 2B 为投行研报与分析师评级服务，均在国内爬虫（任务 2）之后、API 端点（任务 3）之前
+- 国际数据源和投行研报源的 API Key 通过 `.env` 文件配置，未配置的数据源自动跳过不影响系统运行
+- 投行研报数据源尽可能多地接入（当前 10 个），以实现用户要求的"无限制多个获取"
+- 任务 1.3 和 1.4 确保新增依赖和 API Key 配置模板在开发初期就位，避免后续遗漏
+- 任务 1.6 为数据库模型和迁移配置，确保 SQLite 持久化基础设施在开发初期就位
+- 任务 10A 为定时任务调度服务，基于 APScheduler 实现每日速报定时生成和增量更新检查
+- 任务 16.0 为 Vue Router 安装和配置，16.1 使用 `<router-view>` 替代 Tab 切换
+- 任务 12.2-12.4 为新增的前端状态管理 stores，替代旧的 analysis.js/workflow.js/outputs.js；其中 stockAnalysis store 合并了推演和内容生成状态（因为内容生成集成在推演页面中）
+- 任务 18.3-18.4 将旧 stores 和旧 API 方法的清理从其他任务中独立出来，职责更清晰
+- 需求 8 为新增的数据源 API Key 管理需求，对应任务 1.5（数据模型）、3.1（后端 API）、12.4（前端 store）、17.2（设置 UI）
+- 前端 UI 交互保留现有舆情分析系统的布局模式：StockAnalysisView 复用 HomeView 的输入框+热搜标签+流式推演+小红书预览+文案生成布局，StockHotView 复用 HotView 的左右分栏+详情面板布局
+- 导航栏为四个 Tab：股票热榜、行情推演、每日速报、设置（内容创作功能集成在行情推演页面底部，每日速报独立成页支持一键发布全平台）
+- 任务 14A 为多平台预览组件（PlatformPreview 包装组件 + XiaohongshuPreview + WeiboCard + XueqiuCard + ZhihuCard），被 DailyReportView 和 StockAnalysisView 共同使用
+- XiaohongshuPreview 从现有 HomeView.vue 手机模拟器预览区提取为独立组件，复用现有 XiaohongshuCard 组件（标题卡 canvas 渲染）
+- 每个平台的预览组件模拟该平台的真实排版样式：小红书/微博为手机模拟器（320×680px），雪球/知乎为桌面卡片（max-width: 680px）
+- 多平台内容管理采用 platformContents Dict 模式：每个平台独立维护 title/body/images/tags 内容副本，编辑某个平台的内容不影响其他平台
+- 任务 18.2 保留 XiaohongshuCard.vue 和 CopywritingEditor.vue（被新组件复用），仅删除纯舆论分析相关组件
+- 热榜到推演的跳转通过 sessionStorage 传递数据（复用现有 hot_topic_draft 模式）
+- 任务 2.1 新增 RateLimiter 实现（asyncio.Semaphore + 每源独立 cooldown + 高风险源指数退避），替代硬编码 sleep
+- 任务 2A.1 的 batch_translate_to_chinese 方法 LLM prompt 中强调"严格基于原文翻译，不添加任何原文没有的信息"，翻译后标记 is_ai_translated=True
+- 任务 13.1 新增"AI 翻译摘要"标签展示（is_ai_translated=True 的条目）
+- 任务 2.4 为 RateLimiter 新增的属性测试（Property 29, 30）
+- 任务 20-29 为需求 9（散户情绪分析）新增的实现任务
+- 任务 20 为情绪爬虫基础设施（数据模型、代理池、Cookie 池、自适应频率控制），先于爬虫服务实现
+- 任务 20A 为混合情绪数据源服务（AKShare 聚合指标、百度投票、新闻情绪指数、融资融券数据），通过 AKShare 直接调用无需爬虫
+- 任务 21 为情绪爬虫服务，集成反爬对抗组件（代理池、Cookie 池、自适应降速、封禁降级），三个评论源全部实现（东方财富、雪球、同花顺）
+- 任务 22 为情绪分析服务（LLM 批量分析、混合数据源加权指数计算、快照持久化、数据清理）
+- 任务 23 为情绪分析 API 端点和定时任务集成
+- 任务 24 为行情推演集成情绪数据（推演时自动引用综合情绪指数和各分项得分）
+- 任务 26-28 为前端情绪可视化（ECharts 仪表盘 + K 线时序图含分项指数切换 + 页面集成 + 设置配置含权重调整）
+- 情绪采集使用 httpx[socks] 支持 SOCKS5 代理，前端图表使用 ECharts + vue-echarts
+- 混合数据源策略：综合情绪指数 = 评论情绪分(40%) + 百度投票分(20%) + AKShare聚合分(15%) + 新闻情绪分(15%) + 融资融券分(10%)，数据源不可用时权重自动重分配

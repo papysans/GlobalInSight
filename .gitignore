@@ -23,12 +23,19 @@ yarn-error.log
 # IDE
 .vscode/
 .idea/
-.kiro/
+.kiro/settings
 .gemini/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Database
+data/
+
+# Test cache
+.hypothesis/
+.pytest_cache/
 
 # Output
 outputs/
@@ -42,3 +49,5 @@ cookies.json
 
 # Build output
 dist/
+
+_backup

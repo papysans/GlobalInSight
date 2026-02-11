@@ -1,0 +1,293 @@
+﻿# 实现计划：阶段二  社交内容、合规、前端、清理
+
+> 本文件是 tasks.md 拆分后的子文件。完整实现计划包含：
+> - [tasks-phase1.md](tasks-phase1.md)  阶段一：后端基础（数据模型、爬虫、API、推演）任务 1-7
+> - [tasks-phase2.md](tasks-phase2.md)  阶段二：社交内容、合规、前端、清理旧代码 任务 8-19
+> - [tasks-phase3.md](tasks-phase3.md)  阶段三：散户情绪分析全链路 任务 20-29
+
+- [x] 8. 后端：社交内容生成服务
+  - [x] 8.1 在 `app/schemas.py` 中新增 SocialContentRequest、DailyReportRequest、SocialContent 等数据模型
+    - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - [x] 8.2 创建 `app/services/social_content_generator.py`，实现 SocialContentGenerator 类
+    - 集成 SentimentAnalyzer 服务，所有 generate 方法在生成内容时获取最新情绪数据（通过 analysis.sentiment_context 或实时查询），将情绪洞察融入各平台内容
+    - 实现 `generate_xhs_content(analysis)` 方法：从 controversial_conclusion 提取争议点，用 bull/bear_argument 构建"你站哪边？"式互动内容，融入情绪数据亮点（如"散户恐慌指数已飙到 85"）增强传播力
+    - 实现 `generate_weibo_content(analysis)` 方法：从争议性结论提取最尖锐观点，结合情绪指数数据增强冲击力，反问句收尾引发讨论
+    - 实现 `generate_xueqiu_content(analysis)` 方法：争议性标题开头，完整呈现 debate_dialogue 交锋对话，引用情绪指数各分项得分（评论情绪、百度投票、融资融券等）作为量化论据
+    - 实现 `generate_zhihu_content(analysis)` 方法：以争议性问题为标题，知乎"回答"体裁呈现多空论证，引用情绪数据作为量化论据，逻辑推理和数据引用
+    - 实现 `generate_daily_report(news_items)` 方法：为每个平台生成独立的速报内容副本（返回 Dict[str, SocialContent]），每个平台的内容根据平台特性独立生成；情绪概况作为速报首要板块
+    - 集成现有 ImageGeneratorService 生成金融风格配图
+    - 集成现有 XiaohongshuPublisher 实现小红书一键发布（初始版本唯一全自动发布渠道）
+    - 实现 `publish_all_platforms(content)` 方法：依次向所有已启用平台发布内容（当前 = 小红书），返回各平台发布结果；后续新增平台时在 ENABLED_PLATFORMS 中添加即可
+    - 实现 `copy_to_clipboard(content)` 方法：将内容格式化为可复制文本，供微博/雪球/知乎等平台手动粘贴（半自动方案）
+    - 所有 generate 方法在返回前调用 ComplianceService：保存 original_content → desensitize_content() 脱敏 → add_disclaimer() 免责声明 → check_compliance() 合规检查
+    - 内容持久化到 SQLite 数据库（`social_content` 表），历史查询支持分页
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.8, 5.9, 5.10, 5.11, 5.12, 5.13, 3.11_
+  - [x] 8.3 为社交内容生成编写属性测试
+    - **Property 12: 社交内容平台格式一致性**
+    - **Property 13: 小红书内容包含必要元素**
+    - **Property 14: 微博内容长度限制**
+    - **Property 15: 每日速报内容结构完整性**
+    - **Validates: Requirements 5.1, 5.2, 5.3, 5.8, 5.9**
+
+- [x] 9. 后端：合规脱敏服务
+  - [x] 9.1 在 `app/schemas.py` 中新增 DesensitizationLevel、StockSectorMapping、ComplianceSettings、CustomDesensitizeRule、ComplianceCheckResult 数据模型
+    - DesensitizationLevel 枚举：LIGHT（拼音缩写）、MEDIUM（行业描述）、HEAVY（纯行业）、NONE（不脱敏）
+    - StockSectorMapping：stock_code、stock_name、sector_name、industry_name、desensitized_label、pinyin_abbr
+    - ComplianceSettings：default_level（默认 MEDIUM）、platform_levels: Dict[str, DesensitizationLevel]（各平台覆盖）、custom_rules、show_risk_warning
+    - 在 SocialContent 模型中将 is_desensitized: bool 替换为 desensitization_level: str（实际应用的脱敏级别，默认 "medium"），保留 original_content 字段
+    - _Requirements: 5A.1, 5A.4, 5A.9_
+  - [x] 9.2 创建 `app/services/compliance_service.py`，实现 ComplianceService 类
+    - 实现 `build_stock_sector_mapping()` 方法：通过 `asyncio.to_thread()` 调用 AKShare `stock_board_industry_name_em()` 和 `stock_board_industry_cons_em()` 获取板块数据，构建个股到板块/行业的映射表（含 pinyin_abbr 字段）
+    - 实现冷启动策略：优先加载本地缓存 → 有缓存时后台异步刷新 → 无缓存时同步构建 → 构建失败时使用空映射 + 通用回退描述（"某上市公司"）
+    - 实现 `initialize_mapping()` 方法：应用启动时调用，处理冷启动逻辑
+    - 实现 StockDesensitizer 类，支持多级脱敏策略：
+      - `generate_pinyin_abbreviation(stock_name)` 方法：使用 pypinyin 库将股票名称转换为拼音首字母大写缩写（如"贵州茅台"→"GZMT"）
+      - `replace_stock_names_light(text)` 方法：轻度脱敏，替换为拼音缩写
+      - `replace_stock_names_medium(text)` 方法：中度脱敏，替换为行业描述（如"某白酒龙头"）
+      - `replace_stock_names_heavy(text)` 方法：重度脱敏，替换为纯行业板块（如"白酒板块"）
+      - `replace_stock_codes(text)` 方法：替换6位股票代码
+      - `apply_custom_rules(text, rules)` 方法：应用自定义脱敏规则
+    - 实现 `get_desensitization_level(platform, user_settings)` 方法：优先使用用户设置的平台级别覆盖，否则使用 PLATFORM_DEFAULT_LEVELS 推荐默认值（小红书：MEDIUM，微博：LIGHT，雪球：LIGHT，知乎：LIGHT）
+    - 实现 `desensitize_content(text, mapping, level)` 方法：根据 level 参数选择对应的脱敏策略（LIGHT/MEDIUM/HEAVY/NONE）
+    - 实现 `add_disclaimer(content)` 方法：强制附带免责声明
+    - 实现 `check_compliance(content)` 方法：检查内容是否包含未脱敏的个股信息
+    - 拼音转换失败时回退到中度脱敏（行业描述），记录日志
+    - 映射表本地缓存（JSON 文件），定期更新
+    - 映射表缺失条目时使用通用描述（如"某上市公司"）替代
+    - AKShare 不可用时回退到本地缓存
+    - _Requirements: 5A.1, 5A.2, 5A.3, 5A.4, 5A.5, 5A.8, 5A.9_
+  - [x] 9.3 为合规脱敏服务编写属性测试
+    - **Property 18: 脱敏内容不含股票代码**（desensitization_level 为 light/medium/heavy 时）
+    - **Property 19: 脱敏内容不含个股名称**（desensitization_level 为 medium/heavy 时）
+    - **Property 20: 社交内容包含免责声明**
+    - **Property 21: 脱敏可逆性**（desensitization_level 不为 none 时）
+    - **Property 22: 拼音缩写格式正确性**（desensitization_level 为 light 时，个股名称应被替换为匹配 [A-Z]{2,6} 的拼音缩写）
+    - **Property 23: 平台默认脱敏级别一致性**（无用户覆盖时，应用的脱敏级别应与平台推荐默认值一致）
+    - **Validates: Requirements 5A.2, 5A.3, 5A.5, 5A.6, 5A.9**
+
+- [x] 10. 后端：社交内容 API 端点
+  - [x] 10.1 创建 `app/api/content_endpoints.py`，实现社交内容相关路由
+    - POST `/api/content/generate`：根据推演结果生成指定平台格式内容
+    - POST `/api/content/daily-report`：生成每日股市速报
+    - GET `/api/content/daily-report/latest`：获取当日最新速报内容
+    - GET `/api/content/daily-report/history`：获取历史速报列表，支持 limit/offset 参数
+    - POST `/api/content/daily-report/publish-all`：一键发布速报到全平台（当前 = 小红书）
+    - POST `/api/content/publish/xhs`：一键发布到小红书
+    - GET `/api/content/history`：获取历史生成/发布记录
+    - GET `/api/content/{content_id}`：获取单条内容详情
+    - PUT `/api/content/{content_id}`：更新/编辑已生成内容
+    - _Requirements: 5.1, 5.6, 5.7, 7.3, 7.4_
+  - [x] 10.2 在 `app/main.py` 中注册社交内容路由（`/api/content/` 前缀）
+    - _Requirements: 7.3_
+
+- [x] 10A. 后端：定时任务调度服务
+  - [x] 10A.1 创建 `app/services/scheduler_service.py`，实现 SchedulerService 类
+    - 基于 APScheduler 的 AsyncIOScheduler 实现异步定时任务
+    - 实现每日速报定时生成任务（默认 18:00 收盘后，可配置）
+    - 实现每小时增量新闻检查任务（检测重大新闻变化时触发速报更新）
+    - 创建 `app/services/news_change_detector.py`，实现 NewsChangeDetector 类，包含以下检测规则：
+      1. 新增高热度资讯（≥3 条热度 > 10000）
+      2. 单条资讯热度暴涨（≥2 倍增长）
+      3. 热榜 Top3 大幅变化（≥2 条新上榜）
+      4. 新板块异动（之前未出现的板块突然上榜）
+      5. 投行评级升级集中出现（≥2 条新升级）
+      任一规则触发即视为"重大变化"，自动更新速报
+    - 实现 `update_schedule(hour, minute)` 方法：支持从设置页面动态修改定时配置
+    - 在 FastAPI `lifespan` 事件中启动/停止调度器
+    - 后台任务使用独立 Session（通过 `async_session_factory()` 创建），不依赖请求上下文
+    - _Requirements: 5.9_
+
+- [x] 11. Checkpoint - 确保后端全部功能正常（含社交内容和合规脱敏）
+  - 确保所有测试通过，如有问题请向用户确认。
+
+- [x] 12. 前端：API 层和状态管理
+  - [x] 12.1 在 `src/api/index.js` 中新增股票和社交内容相关 API 方法
+    - getStockNews（含 category 参数）、getStockSources、analyzeStock（SSE）、getStockAnalysisHistory、getStockAnalysisDetail
+    - getConsensusRating、getAnalystRatings（投行研报专用）
+    - generateSocialContent、generateDailyReport、getDailyReportLatest、getDailyReportHistory、publishDailyReportAllPlatforms、publishToXiaohongshu、getSocialContentHistory
+    - getDataSourceConfig、saveDataSourceConfig、testDataSourceConnection（数据源管理）
+    - _Requirements: 7.1, 7.2, 7.3, 8.6_
+  - [x] 12.2 创建 `src/stores/stockNews.js`，实现股票资讯状态管理
+    - state：newsList、sourceStats、categoryStats、collectionTime、fromCache、loading、error、selectedCategory、selectedSource、selectedTopic
+    - getters：filteredNews（按 category 和 source 筛选）、availableSources（当前类别下可用数据源）、trendingTopics（取前 N 条热点用于推演页面热搜标签）
+    - actions：fetchNews(forceRefresh)、selectTopic(topic)
+    - _Requirements: 2.1, 2.4, 2.6_
+  - [x] 12.3 创建 `src/stores/stockAnalysis.js`，实现行情推演与内容生成状态管理（合并推演 + 社交内容，因为内容生成集成在推演页面中）
+    - state：currentAnalysis、analysisSteps（辩论日志）、isAnalyzing、history、error、finalCopy（标题+正文）、selectedPlatform、imageUrls、titleEmoji、titleTheme、isEditing、editableContent、platformContents（多平台内容副本 Dict，结构同 dailyReport store）、isPublishing、contentHistory
+    - getters：currentPlatformContent（当前选中平台的内容副本）
+    - actions：startAnalysis(payload)（SSE 流式，payload 含 topic 和 debate_rounds）、stopAnalysis()、fetchHistory(limit, offset)、fetchDetail(analysisId)、generateContent(analysisId, platform)（结果存入 platformContents[platform]）、publishToXhs(contentId)、switchPlatform(platform)、initPlatformContents(baseContent)、startEditing()（加载当前平台内容到 editableContent）、updateContent(updates)（仅更新当前平台内容副本）
+    - 复用现有 analysis store 的 SSE 处理模式和编辑模式逻辑
+    - _Requirements: 3.1, 3.7, 3.10, 3.12, 5.1, 5.7, 5.8, 5.20, 5.22, 5.23_
+  - [x] 12.4 扩展 `src/stores/config.js`，新增合规脱敏设置和数据源配置状态
+    - 合规脱敏：defaultLevel、platformLevels、customRules、showRiskWarning
+    - 数据源配置：dataSourceConfigs 列表、保存/加载/测试 actions
+    - _Requirements: 5A.7, 8.1, 8.5_
+  - [x] 12.5 创建 `src/stores/dailyReport.js`，实现每日速报状态管理
+    - state：currentReport、reportHistory、isGenerating、isPublishing、platformStatuses、selectedPlatform、platformContents（多平台内容副本 Dict）、isEditing、editableContent、error
+    - platformContents 结构：{ xhs: {title, body, images, tags, titleEmoji, titleTheme}, weibo: {title, body, images, tags}, xueqiu: {title, body, images, tags}, zhihu: {title, body, images, tags} }
+    - getters：currentPlatformContent（当前选中平台的内容副本）
+    - actions：generateReport()（生成后为每个平台初始化内容副本）、fetchLatest()、fetchHistory(limit, offset)、publishAllPlatforms(contentId)、publishToSinglePlatform(contentId, platform)、switchPlatform(platform)、startEditing()（加载当前平台内容到 editableContent）、updateContent(updates)（仅更新当前平台内容副本）、initPlatformContents(baseContent)
+    - _Requirements: 5.9, 5.14, 5.15, 5.16, 5.17, 5.18, 5.19, 5.20, 5.22, 5.23
+
+- [x] 13. 前端：股票热榜视图
+  - [x] 13.1 创建 `src/views/StockHotView.vue`，**直接从 HotView.vue 复制完整模板代码**，仅修改数据绑定
+    - **UI 一致性：必须从 HotView.vue 复制 HTML 结构和 CSS 类名，保持像素级一致**
+    - 顶部 Header：复制 HotView 的 `<header class="relative bg-white border-b border-slate-100 pt-10 pb-6 px-4">` 完整结构，保留橙色 pill 标签（`bg-orange-50 text-orange-600`）、大标题（`text-2xl md:text-4xl font-extrabold`）、副标题、右侧按钮区样式
+    - 新增大盘情绪仪表盘（SentimentGauge full 模式）放在 Header 区域
+    - 筛选面板：复制 HotView 的 `glass-card rounded-2xl p-4 shadow-lg` 筛选面板完整结构，保留平台 pill 按钮（`px-3 py-1 rounded-full border text-xs font-semibold`，选中态 `bg-blue-50 border-blue-300 text-blue-600`）、类别筛选、排序选择器、搜索框样式
+    - 左侧列表（`lg:col-span-7`）：复制 HotView 的卡片结构（`glass-card rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg border-l-4`），保留排名徽章金/银/铜渐变（Top 1 `from-amber-400 via-orange-500 to-amber-600`，Top 2 `from-slate-300 via-slate-400 to-slate-500`，Top 3 `from-amber-200 via-orange-200 to-amber-300`）、选中高亮（`border-l-blue-600 bg-blue-50 shadow-lg`）、热度 pill（`text-orange-600 bg-orange-50`）
+    - 投行研报条目显示评级标签（买入/持有/卖出，绿/黄/红色）和目标价
+    - 国际新闻条目显示原始语言标签和情绪标签（若有）
+    - LLM 翻译的中文摘要条目（is_ai_translated=True）显示"AI 翻译摘要"标签，并提供原文链接
+    - 右侧详情面板（`lg:col-span-5`）：复制 HotView 的 `glass-card rounded-2xl p-5 shadow-lg border border-slate-100 sticky top-24` 完整结构，保留标题 + 热度 pill + "一键推演"按钮样式、详情内容区（`rounded-xl border border-slate-100 bg-slate-50 p-3`）、未选中占位提示
+    - "一键推演"通过 sessionStorage 缓存选中资讯，router.push 跳转到行情推演页面
+    - _Requirements: 1.11, 1.14, 2.1, 2.2, 2.3, 2.4, 2.5, 2.9, 4.6_
+
+- [x] 14. 前端：行情推演视图
+  - [x] 14.1 创建 `src/views/StockAnalysisView.vue`，**直接从 HomeView.vue 复制完整模板代码**，仅修改数据绑定
+    - **UI 一致性：必须从 HomeView.vue 复制 HTML 结构和 CSS 类名，保持像素级一致**
+    - 顶部输入区：复制 HomeView 的 `<header class="relative bg-white border-b border-slate-100 pt-12 pb-8 px-4">` 完整结构，保留居中布局（`max-w-4xl mx-auto text-center`）、标题样式（`text-3xl md:text-5xl font-extrabold` + `gradient-text`）、蓝色渐变光晕输入框（`bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25`）、白色圆角输入框（`bg-white rounded-xl shadow-xl border border-slate-200`）、辩论轮数选择器、启动/停止按钮
+    - 新增：输入框右侧大盘情绪迷你仪表盘（SentimentGauge mini 模式）
+    - 热搜标签行：复制 HomeView 的热搜标签完整结构，保留红色"热搜"标签（`font-bold text-red-500`）、pill 标签按钮（`px-3 py-1 bg-white border border-slate-200 rounded-full hover:border-blue-300 hover:text-blue-600`）、刷新按钮样式（数据源改为股票热榜 API）
+    - 从热榜"一键推演"跳转时，onMounted 从 sessionStorage 读取资讯标题自动填入输入框
+    - 工作流进度条：复制 HomeView 的 `sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm` 进度条完整结构，保留蓝色渐变进度条（`bg-gradient-to-r from-blue-500 to-indigo-600`）、步骤卡片网格（`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2`）
+    - 左侧（`lg:col-span-7`）：复制 HomeView 的辩论面板（`glass-card rounded-xl border-t-4 border-t-blue-500 h-[450px] shadow-lg`）和 Grand Insight 面板（`glass-card rounded-xl p-5 shadow-md border-l-4 border-l-yellow-400`）完整结构
+    - 右侧（`lg:col-span-5`）：多平台预览区（PlatformPreview 组件），默认小红书，支持 Tab 切换到微博/雪球/知乎
+    - 底部文案生成区：复制 HomeView 的文案区完整结构，保留绿色顶部边框（`border-t-4 border-t-emerald-500`）、textarea 样式、编辑/复制/导出图片按钮布局
+    - 小红书格式时显示"发布到小红书"按钮（MCP 状态指示）
+    - 微博/雪球/知乎格式时显示"一键复制到剪贴板"按钮（半自动方案，用户手动粘贴到对应平台）
+    - 编辑面板（复用 CopywritingEditor 组件模式）：修改标题、正文、选择/排序配图，编辑仅影响当前平台内容副本
+    - 历史推演记录列表
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.10, 3.12, 3.13, 3.14, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.12, 5.13, 5.20, 5.21, 5.22, 5.23, 5A.1, 5A.6_
+
+- [x] 14A. 前端：多平台预览组件
+  - [x] 14A.1 创建 `src/components/PlatformPreview.vue`，多平台预览包装组件
+    - **UI 一致性：Tab 栏使用与 HotView 筛选按钮相同的 pill 样式（`rounded-full` 选中高亮）**
+    - Props：platformContents（Dict[string, PlatformContent]）、selectedPlatform、isEditing、editableContent
+    - Events：@update:selectedPlatform、@startEditing、@updateContent(platform, updates)
+    - 顶部平台选择器 Tab 栏：四个 Tab 按钮（小红书/微博/雪球/知乎），使用与 HotView 平台筛选相同的 pill 按钮样式（`px-3 py-1 rounded-full border text-xs font-semibold`，选中态 `bg-blue-50 border-blue-300 text-blue-600`）
+    - 预览区域：根据 selectedPlatform 动态渲染对应预览组件（XiaohongshuPreview / WeiboCard / XueqiuCard / ZhihuCard）
+    - 预览区下方操作栏：编辑按钮 + 复制全文按钮 + 平台特有操作
+    - 被 DailyReportView 和 StockAnalysisView 共同使用
+    - _Requirements: 5.20, 5.21, 5.22, 5.23_
+  - [x] 14A.2 创建 `src/components/XiaohongshuPreview.vue`，小红书手机模拟器预览组件
+    - **UI 一致性：必须从 HomeView.vue 手机模拟器区域复制完整 HTML 结构和 CSS 类名**
+    - 从现有 HomeView.vue 手机模拟器预览区提取为独立组件
+    - Props：title、body、images、tags、titleEmoji、titleTheme
+    - 复用现有 XiaohongshuCard 组件（标题卡 canvas 渲染）
+    - 手机外框：复制 HomeView 的 `rounded-[3rem] w-full max-w-[320px] h-[680px]`，`border: 8px solid #000000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5)` 完整样式
+    - 状态栏 + App Header + 可滚动内容区（图片区 3:4 比例 `aspect-[3/4]` + 文案区）+ 底部互动栏：全部复制 HomeView 对应结构
+    - 支持左右滑动切换图片（标题卡 + AI 配图），底部圆点指示器
+    - _Requirements: 5.21_
+  - [x] 14A.3 创建 `src/components/WeiboCard.vue`，微博手机模拟器预览组件
+    - Props：title、body、images、tags
+    - 手机外框（320×680px）+ 状态栏 + 微博 App Header
+    - 用户信息栏（头像 + 昵称 + 认证 V + 发布时间 + 关注按钮）
+    - 正文区域（超过 140 字显示红色字数提示）
+    - 话题标签（#话题# 格式，蓝色文字）
+    - 配图九宫格布局（1 图全宽、2-3 图横排、4 图 2×2、5-9 图 3×3）
+    - 底部互动栏（转发/评论/点赞）
+    - _Requirements: 5.21_
+  - [x] 14A.4 创建 `src/components/XueqiuCard.vue`，雪球桌面卡片预览组件
+    - Props：title、body、images、tags
+    - 桌面卡片容器（max-width: 680px，白色背景，圆角 12px，阴影）
+    - 雪球 Header + 用户信息栏 + 文章标题（大号粗体）
+    - 正文区域（Markdown 渲染，支持 h2/h3、加粗、列表、引用块）
+    - 数据引用高亮（含数字和百分比的段落浅蓝色背景）
+    - 配图穿插正文中（居中 + 圆角）
+    - 免责声明区域 + 底部互动栏（赞同/评论/转发/收藏）
+    - _Requirements: 5.21_
+  - [x] 14A.5 创建 `src/components/ZhihuCard.vue`，知乎桌面卡片预览组件
+    - Props：title、body、images、tags
+    - 桌面卡片容器（max-width: 680px，白色背景，圆角 12px，阴影）
+    - 知乎 Header + 问题标题（大号粗体蓝色）+ 回答者信息栏
+    - 回答正文区域（Markdown 渲染，支持标题层级、加粗、列表、引用块、代码块）
+    - 数据引用高亮（含数字和百分比的段落浅蓝色背景）
+    - 配图穿插正文中（居中 + 圆角 + 图注）
+    - 免责声明区域 + 底部互动栏（赞同蓝色按钮/反对/评论/收藏/分享）
+    - _Requirements: 5.21_
+
+- [x] 15. 前端：每日速报视图
+  - [x] 15.1 创建 `src/views/DailyReportView.vue`，每日速报独立页面
+    - **UI 一致性：遵循 HotView/HomeView 相同的视觉风格，使用相同的 glass-card、栅格布局、配色和间距**
+    - 顶部 Header：复制 HotView 的 header 结构（`bg-white border-b border-slate-100 pt-10 pb-6 px-4`），页面标题"每日股市速报" + 当前日期 + 大盘情绪迷你仪表盘 + "手动生成速报"按钮（与 HotView "刷新热榜"按钮相同样式）+ 定时状态指示
+    - 速报内容区（左右分栏，使用与 HotView/HomeView 相同的 `grid grid-cols-1 lg:grid-cols-12 gap-6 items-start`）：
+      - 左侧（`lg:col-span-7`）：当日速报原始内容预览卡片（使用 `glass-card rounded-xl` 样式），包含情绪概况 + 大盘概况 + 板块异动 + 热点事件解读
+      - 右侧（`lg:col-span-5`）：多平台预览区（PlatformPreview 组件），平台选择器 Tab + 对应平台排版预览
+    - 速报生成中时显示加载动画和进度提示；未生成时显示占位提示和"立即生成"引导（与 HotView 未选中占位风格一致）
+    - 预览区支持编辑（CopywritingEditor 组件模式），编辑仅影响当前平台的内容副本
+    - 平台发布区："一键发布全平台"按钮 + 各平台发布状态卡片（平台图标 + 状态 + 单平台重试按钮）
+    - 非小红书平台显示"复制到剪贴板"按钮（半自动方案）
+    - 历史速报列表（底部折叠区）：按日期倒序，点击展开查看完整内容
+    - _Requirements: 5.9, 5.10, 5.14, 5.15, 5.16, 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23_
+
+- [x] 16. 前端：App.vue 和导航栏改造
+  - [x] 16.0 安装并配置 Vue Router
+    - 安装 vue-router@4（`npm install vue-router@4`）
+    - 创建 `src/router/index.js`，定义路由配置（`/` → StockHotView, `/analysis` → StockAnalysisView, `/daily-report` → DailyReportView, `/settings` → SettingsView）
+    - 使用 `createWebHistory()` history 模式
+    - 所有路由使用懒加载（`() => import(...)`）
+    - 在 `src/main.js` 中注册 router 插件
+    - 在 `app/main.py` 中添加 FastAPI catch-all 路由（`@app.get("/{full_path:path}")`）用于生产环境 SPA 部署：所有非 `/api/` 的请求返回 `dist/index.html`，由 Vue Router 处理前端路由
+    - 确保所有 API 路由以 `/api/` 前缀开头，catch-all 路由在所有 API 路由之后注册
+    - _Requirements: 4.1, 4.3_
+  - [x] 16.1 改造 `src/App.vue`
+    - **UI 一致性：必须保留现有 App.vue 的导航栏视觉风格（`rounded-full` pill 按钮、暗色模式切换、设置图标按钮）**
+    - 使用 `<router-view>` 替代动态组件渲染当前路由视图
+    - NavigationBar 使用 `<router-link>` 实现导航切换和高亮，保留现有的 `rounded-full` pill 按钮样式和配色，导航项改为：股票热榜、行情推演、每日速报、设置
+    - 保留现有的暗色模式切换按钮和设置图标按钮样式
+    - StockHotView 中"一键推演"通过 sessionStorage 缓存选中资讯 + router.push 跳转到 StockAnalysisView
+    - StockAnalysisView 在 onMounted 时从 sessionStorage 读取并填入输入框（复用 hydrateHotTopicDraft 模式）
+    - 更新系统名称和品牌标识
+    - 移除 HotView、HomeView、DataView、ArchView、VisionView 的引用
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [x] 17. 前端：设置页面合规脱敏配置与数据源管理
+  - [x] 17.1 在 SettingsView 中新增合规脱敏设置区域
+    - 脱敏级别选择器（四级：轻度脱敏/拼音缩写、中度脱敏/行业描述、重度脱敏/纯行业、不脱敏）
+    - 各平台脱敏级别覆盖配置（小红书、微博、雪球、知乎各自的级别选择器，显示推荐默认值）
+    - 自定义脱敏规则管理界面（添加/删除敏感词和替换词）
+    - 选择"不脱敏"时的风险警告弹窗（需二次确认）
+    - _Requirements: 5A.7, 5A.8, 5A.9_
+  - [x] 17.2 在 SettingsView 中新增数据源 API Key 配置区域
+    - 国际财经新闻 API Key 配置：Finnhub、NewsAPI、Alpha Vantage、Marketaux
+    - 投行研报 API Key 配置：Benzinga、Seeking Alpha（可选）
+    - 无需 API Key 的数据源显示"免费，无需配置"标签
+    - 各数据源启用/禁用开关
+    - API Key 连通性测试按钮和状态指示灯
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.7_
+  - [x] 17.3 在 SettingsView 中新增每日速报定时配置区域
+    - 速报生成时间配置（小时:分钟选择器，默认 18:00）
+    - 增量检查开关（默认开启）
+    - _Requirements: 5.9_
+
+- [x] 18. 前端：清理旧视图和组件
+  - [x] 18.1 移除不再需要的舆论分析相关视图文件
+    - 删除 HotView.vue、HomeView.vue、DataView.vue、ArchView.vue、VisionView.vue、EditorTestView.vue
+    - _Requirements: 4.1, 6.1, 6.2_
+  - [x] 18.2 移除不再需要的舆论分析相关前端组件
+    - 删除 DebateTimeline.vue、ThinkingChain.vue、InsightCard.vue、RadarChart.vue、TrendChart.vue、NewsInput.vue 等
+    - 注意：保留 XiaohongshuCard.vue（被 XiaohongshuPreview 组件复用）和 CopywritingEditor.vue（被多平台编辑功能复用）
+    - _Requirements: 6.3_
+  - [x] 18.3 清理旧的前端状态管理文件
+    - 删除 stores/analysis.js、stores/workflow.js、stores/outputs.js（已被 12.2-12.4 的新 stores 替代）
+    - _Requirements: 6.6_
+  - [x] 18.4 清理 `src/api/index.js` 中舆论分析相关的 API 方法
+    - 移除 getHotNews、getHotNewsTrending、analyze、getWorkflowStatus 等旧方法
+    - _Requirements: 6.5_
+
+- [x] 19. 后端：清理旧舆论分析代码
+  - [x] 19.1 移除舆论分析相关的后端服务文件
+    - 删除 hotnews_interpreter.py、hotnews_signals.py、hotnews_alignment.py、hotnews_llm_enricher.py
+    - 删除 workflow.py、workflow_status.py
+    - 删除 hotnews_history.py、foreign_news_crawler_service.py、media_crawler_service.py、crawler_router_service.py
+    - 注意：保留 image_generator.py 和 xiaohongshu_publisher.py（社交内容功能复用）
+    - _Requirements: 6.1_
+  - [x] 19.2 清理 `app/api/endpoints.py` 中舆论分析相关的 API 路由
+    - 移除 analyze、hot-news、workflow 等旧路由
+    - 保留健康检查、用户设置、模型管理等通用路由
+    - _Requirements: 6.4_
+  - [x] 19.3 验证 `src/api/index.js` 中舆论分析 API 方法已在任务 18.4 中清理完毕
+    - _Requirements: 6.5_
+  - [x] 19.4 移除 `opinion_mcp/` 目录下的舆论分析 MCP 工具代码
+    - _Requirements: 6.7_

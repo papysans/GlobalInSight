@@ -55,6 +55,24 @@ DEFAULT_SCALE = 10.0
 DEFAULT_STYLE = "小红书"
 
 class ImageGeneratorService:
+    @staticmethod
+    def _extract_text_content(content: Any) -> str:
+        """Extract clean text content from LLM response which might be a list of dicts."""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    if "text" in item:
+                        text_parts.append(item["text"])
+                elif isinstance(item, str):
+                    text_parts.append(item)
+                else:
+                    text_parts.append(str(item))
+            return "\n".join(text_parts)
+        return str(content)
+
     def __init__(self):
         if VisualService is None:
             self.visual_service = None
@@ -144,8 +162,7 @@ class ImageGeneratorService:
         ]
         response = await llm.ainvoke(messages)
         # Extract text content (handling potential list/dict response)
-        from app.services.workflow import extract_text_content
-        raw = extract_text_content(response.content)
+        raw = self._extract_text_content(response.content)
         prompts = self._parse_prompts(raw)
         # Hard guard: cap to configured count
         if len(prompts) > image_count:

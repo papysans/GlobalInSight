@@ -220,14 +220,14 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useAnalysisStore } from '../stores/analysis'
+import { useStockAnalysisStore } from '../stores/stockAnalysis'
 import { storeToRefs } from 'pinia'
 import { PenTool, FileText, Image, Check, X, AlertTriangle, Info } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { VueDraggable } from 'vue-draggable-plus'
 import XiaohongshuCard from './XiaohongshuCard.vue'
 
-const analysisStore = useAnalysisStore()
+const analysisStore = useStockAnalysisStore()
 const { isEditing, editableContent, imageUrls, titleEmoji, titleTheme } = storeToRefs(analysisStore)
 
 // 本地编辑状态
@@ -243,9 +243,8 @@ watch(isEditing, (newVal) => {
     localBody.value = editableContent.value.body
     
     // 计算当前实际的图片总数
-    const dataViewCount = analysisStore.dataViewImages?.length || 0
     const aiImageCount = imageUrls.value?.length || 0
-    const totalImages = 1 + dataViewCount + aiImageCount // Title Card + DataView + AI
+    const totalImages = 1 + aiImageCount // Title Card + AI
     
     // 验证并过滤 selectedImageIndices，确保索引在有效范围内
     const rawSelectedIndices = editableContent.value.selectedImageIndices || []
@@ -272,7 +271,6 @@ watch(isEditing, (newVal) => {
       title: localTitle.value,
       bodyLength: localBody.value?.length,
       totalImages,
-      dataViewCount,
       aiImageCount,
       rawSelectedIndices,
       validSelectedIndices: localSelectedIndices.value,
@@ -289,31 +287,18 @@ const allImages = computed(() => {
   // 1. Title Card（始终在第一位）
   images.push({ type: 'title', label: '标题卡', url: null, originalIndex: 0 })
   
-  // 2. DataView 卡片（如果有）
-  const dataViewImages = analysisStore.dataViewImages || []
-  dataViewImages.forEach((url, i) => {
-    const labels = ['平台覆盖', '辩论演化', '热度趋势']
-    images.push({ 
-      type: 'dataview', 
-      label: labels[i] || `数据卡片 ${i + 1}`, 
-      url, 
-      originalIndex: i + 1 
-    })
-  })
-  
-  // 3. AI 生图
+  // 2. AI 生图
   imageUrls.value.forEach((url, i) => {
     images.push({ 
       type: 'ai', 
       label: `AI配图 ${i + 1}`, 
       url, 
-      originalIndex: dataViewImages.length + i + 1 
+      originalIndex: i + 1 
     })
   })
   
   console.log('[CopywritingEditor] allImages computed:', {
     totalCount: images.length,
-    dataViewCount: dataViewImages.length,
     aiImageCount: imageUrls.value.length,
     firstImage: images[0],
     restImages: images.slice(1).map(img => ({ label: img.label, type: img.type }))

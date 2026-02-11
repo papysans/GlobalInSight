@@ -9,6 +9,24 @@ export const useConfigStore = defineStore('config', {
         modelsByProvider: null, // 缓存的模型列表
         modelsCacheTime: null, // 缓存时间戳
         darkMode: localStorage.getItem('grandchart_dark_mode') === 'true', // 深色模式
+
+        // 合规脱敏设置
+        compliance: {
+            defaultLevel: 'medium',  // light / medium / heavy / none
+            platformLevels: {        // 各平台脱敏级别覆盖（null = 使用默认）
+                xhs: null,
+                weibo: null,
+                xueqiu: null,
+                zhihu: null,
+            },
+            customRules: [],         // [{ keyword, replacement }]
+            showRiskWarning: true,
+        },
+
+        // 数据源配置
+        dataSourceConfigs: [],       // DataSourceConfig[]
+        dataSourceLoading: false,
+        dataSourceError: null,
     }),
 
     getters: {
@@ -39,6 +57,12 @@ export const useConfigStore = defineStore('config', {
             const models = state.modelsByProvider[providerKey] || [];
             const defaultModel = models.find(m => m.is_default);
             return defaultModel ? defaultModel.id : (models[0] ? models[0].id : null);
+        },
+
+        // 获取指定平台的有效脱敏级别（优先平台覆盖，否则默认）
+        getComplianceLevel: (state) => (platform) => {
+            const override = state.compliance.platformLevels[platform];
+            return override || state.compliance.defaultLevel;
         },
     },
 
@@ -166,6 +190,64 @@ export const useConfigStore = defineStore('config', {
         // 初始化深色模式（应用启动时调用）
         initDarkMode() {
             this.applyDarkMode();
+        },
+
+        // ========== 合规脱敏设置 ==========
+
+        loadComplianceSettings() {
+            const saved = localStorage.getItem('grandchart_compliance');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    this.compliance = { ...this.compliance, ...parsed };
+                } catch (e) {
+                    console.error('Failed to load compliance settings:', e);
+                }
+            }
+        },
+
+        saveComplianceSettings(updates) {
+            this.compliance = { ...this.compliance, ...updates };
+            localStorage.setItem('grandchart_compliance', JSON.stringify(this.compliance));
+        },
+
+        // ========== 数据源配置 ==========
+
+        async fetchDataSourceConfig() {
+            this.dataSourceLoading = true;
+            this.dataSourceError = null;
+            try {
+                const result = await api.getDataSourceConfig();
+                this.dataSourceConfigs = result.sources || [];
+            } catch (err) {
+                this.dataSourceError = err.message;
+                console.error('Failed to fetch data source config:', err);
+            } finally {
+                this.dataSourceLoading = false;
+            }
+        },
+
+        async saveDataSourceConfig(configs) {
+            this.dataSourceLoading = true;
+            this.dataSourceError = null;
+            try {
+                await api.saveDataSourceConfig({ sources: configs });
+                this.dataSourceConfigs = configs;
+            } catch (err) {
+                this.dataSourceError = err.message;
+                throw err;
+            } finally {
+                this.dataSourceLoading = false;
+            }
+        },
+
+        async testDataSourceConnection(sourceId) {
+            try {
+                return await api.testDataSourceConnection(sourceId);
+            } catch (err) {
+                console.error(`Failed to test data source ${sourceId}:`, err);
+                return { success: false, message: err.message };
+            }
         },
     },
 });
