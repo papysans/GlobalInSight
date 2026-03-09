@@ -273,19 +273,21 @@ main() {
     read -p "是否启动 Opinion MCP 服务（用于 ClawdBot 集成）？(y/n) " -n 1 -r START_OPINION_MCP
     echo ""
     
+    # 询问是否启动卡片渲染服务
+    read -p "是否启动卡片渲染服务（用于 OpenClaw 数据卡片生成）？(y/n) " -n 1 -r START_RENDERER
+    echo ""
+    
     # 启动服务
-    if [[ $START_OPINION_MCP =~ ^[Yy]$ ]]; then
-        print_info "将在 4 个新终端窗口中启动服务："
-        print_info "  1. 小红书 MCP 服务 (端口 18060)"
-        print_info "  2. 后端 API 服务 (端口 8000)"
-        print_info "  3. 前端开发服务器 (端口 5173)"
-        print_info "  4. Opinion MCP 服务 (端口 18061)"
-    else
-        print_info "将在 3 个新终端窗口中启动服务："
-        print_info "  1. 小红书 MCP 服务 (端口 18060)"
-        print_info "  2. 后端 API 服务 (端口 8000)"
-        print_info "  3. 前端开发服务器 (端口 5173)"
-    fi
+    SVC_COUNT=3
+    [[ $START_OPINION_MCP =~ ^[Yy]$ ]] && SVC_COUNT=$((SVC_COUNT + 1))
+    [[ $START_RENDERER =~ ^[Yy]$ ]] && SVC_COUNT=$((SVC_COUNT + 1))
+    
+    print_info "将在 $SVC_COUNT 个新终端窗口中启动服务："
+    print_info "  1. 小红书 MCP 服务 (端口 18060)"
+    print_info "  2. 后端 API 服务 (端口 8000)"
+    print_info "  3. 前端开发服务器 (端口 5173)"
+    [[ $START_OPINION_MCP =~ ^[Yy]$ ]] && print_info "  • Opinion MCP 服务 (端口 18061)"
+    [[ $START_RENDERER =~ ^[Yy]$ ]] && print_info "  • 卡片渲染服务 (端口 3001)"
     echo ""
     
     read -p "按 Enter 键继续..." -r
@@ -311,6 +313,12 @@ main() {
         osascript -e "tell application \"Terminal\" to do script \"cd '$CURRENT_DIR' && ./scripts/start-opinion-mcp.sh\""
     fi
     
+    # 启动卡片渲染服务（如果用户选择）
+    if [[ $START_RENDERER =~ ^[Yy]$ ]]; then
+        sleep 2
+        osascript -e "tell application \"Terminal\" to do script \"cd '$CURRENT_DIR' && ./scripts/start-renderer.sh\""
+    fi
+    
     echo ""
     print_success "所有服务已在新窗口中启动！"
     echo ""
@@ -321,6 +329,9 @@ main() {
     print_info "  • 小红书 MCP: http://localhost:18060/mcp"
     if [[ $START_OPINION_MCP =~ ^[Yy]$ ]]; then
         print_info "  • Opinion MCP: http://localhost:18061/health"
+    fi
+    if [[ $START_RENDERER =~ ^[Yy]$ ]]; then
+        print_info "  • 卡片渲染: http://localhost:3001/healthz"
     fi
     echo ""
     print_info "首次使用请访问前端设置页面配置 API Keys"
