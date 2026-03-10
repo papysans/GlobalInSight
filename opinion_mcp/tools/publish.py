@@ -18,7 +18,7 @@ from loguru import logger
 
 from opinion_mcp.services.backend_client import backend_client
 from opinion_mcp.services.job_manager import job_manager
-from opinion_mcp.utils.url_validator import filter_valid_urls, download_images
+from opinion_mcp.utils.url_validator import download_images
 
 
 # ============================================================
@@ -105,6 +105,21 @@ async def collect_images_for_publish(
     final_paths = local_card_paths + local_paths
     
     return final_paths, failed_images
+
+
+def _has_card_assets(result: Any) -> bool:
+    cards = getattr(result, "cards", None)
+    if not cards:
+        return False
+    return any(
+        bool(path)
+        for path in [
+            getattr(cards, "title_card", None),
+            getattr(cards, "debate_timeline", None),
+            getattr(cards, "trend_analysis", None),
+            getattr(cards, "platform_radar", None),
+        ]
+    )
 
 
 # ============================================================
@@ -277,11 +292,24 @@ async def publish_to_xhs(
     
     # 收集并验证图片
     valid_images, failed_images = await collect_images_for_publish(result, publish_mode)
+    fallback_used = False
+
+    # 兜底: ai_only + 无 AI 图时，尝试回退到卡片发布，避免 image_count=0 无法发布
+    if not valid_images and publish_mode == "ai_only" and _has_card_assets(result):
+        logger.warning(
+            "[publish_to_xhs] ai_only 模式下无可用 AI 图片，自动回退到 ai_and_cards 以继续发布"
+        )
+        valid_images, failed_images = await collect_images_for_publish(result, "ai_and_cards")
+        if valid_images:
+            publish_mode = "ai_and_cards"
+            fallback_used = True
     
     if not valid_images:
         error_msg = "没有可发布的图片"
         if failed_images:
             error_msg += f"，{len(failed_images)} 个图片验证失败"
+        if publish_mode == "ai_only":
+            error_msg += "（当前模式为 ai_only，且未检测到可用 AI 图片）"
         return {
             "success": False,
             "error": error_msg,
@@ -337,10 +365,11 @@ async def publish_to_xhs(
             "success": True,
             "job_id": job_id,
             "note_url": note_url,
-            "message": "发布成功",
+            "message": "发布成功（已自动回退到卡片发布）" if fallback_used else "发布成功",
             "images_used": len(valid_images),
             "failed_images": failed_images,
             "publish_mode": publish_mode,
+            "fallback_used": fallback_used,
         }
         
     except Exception as e:

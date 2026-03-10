@@ -167,7 +167,10 @@ class XiaohongshuPublisher:
             }
         except httpx.TimeoutException as e:
             logger.error(f"[XHS MCP] Timeout: {e}")
-            return {"success": False, "error": "请求超时，请稍后重试"}
+            return {
+                "success": False,
+                "error": f"请求超时（>{timeout:.0f}秒），请稍后重试",
+            }
         except Exception as e:
             logger.error(f"[XHS MCP] Unexpected error: {e}")
             return {"success": False, "error": str(e)}
@@ -286,29 +289,49 @@ class XiaohongshuPublisher:
         # Add tags if provided (XHS MCP handles topic selection via browser automation)
         if processed_tags:
             mcp_args["tags"] = processed_tags
-        
-        result = await self._call_mcp(
-            "publish_content",
-            mcp_args,
-            timeout=120.0,  # 发布可能需要较长时间
-        )
 
-        if result.get("success"):
-            mcp_result = result.get("result", {})
-            content_list = mcp_result.get("content", [])
-            message = ""
-            if content_list and isinstance(content_list, list) and len(content_list) > 0:
-                message = content_list[0].get("text", "")
+        publish_timeout = float(os.getenv("XHS_PUBLISH_TIMEOUT", "240"))
+        max_attempts = 2
+        last_error = "发布失败"
 
-            return {
-                "success": True,
-                "message": message or "发布成功",
-                "data": mcp_result,
-            }
+        for attempt in range(1, max_attempts + 1):
+            result = await self._call_mcp(
+                "publish_content",
+                mcp_args,
+                timeout=publish_timeout,
+            )
+
+            if result.get("success"):
+                mcp_result = result.get("result", {})
+                content_list = mcp_result.get("content", [])
+                message = ""
+                if (
+                    content_list
+                    and isinstance(content_list, list)
+                    and len(content_list) > 0
+                ):
+                    message = content_list[0].get("text", "")
+
+                return {
+                    "success": True,
+                    "message": message or "发布成功",
+                    "data": mcp_result,
+                }
+
+            last_error = result.get("error", "发布失败")
+            is_timeout = isinstance(last_error, str) and "超时" in last_error
+            if is_timeout and attempt < max_attempts:
+                logger.warning(
+                    f"[XHS MCP] publish_content 超时，第 {attempt}/{max_attempts} 次失败，2 秒后重试"
+                )
+                await asyncio.sleep(2)
+                continue
+
+            break
 
         return {
             "success": False,
-            "error": result.get("error", "发布失败"),
+            "error": last_error,
         }
 
     async def get_status(self) -> Dict[str, Any]:

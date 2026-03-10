@@ -314,7 +314,7 @@ MCP_TOOLS: List[MCPTool] = [
                 "card_types": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "指定要生成的卡片类型，留空则生成所有。可选: title, insight, debate_timeline, trend, radar, key_findings, platform_heat"
+                    "description": "指定要生成的卡片类型，留空默认生成四张核心卡（title, debate_timeline, trend, radar）。可选: title, insight, debate_timeline, trend, radar, key_findings, platform_heat"
                 }
             },
             required=[]
@@ -751,6 +751,12 @@ class UpdateCopywritingRequest(BaseModel):
     tags: Optional[List[str]] = None
 
 
+class GenerateCardsRequest(BaseModel):
+    """生成数据卡片请求体"""
+    job_id: Optional[str] = None
+    card_types: Optional[List[str]] = None
+
+
 # 兼容直接调用工具名的端点
 @app.post("/analyze_topic")
 async def direct_analyze_topic_post(body: AnalyzeTopicRequest) -> Dict[str, Any]:
@@ -854,6 +860,24 @@ async def direct_publish_xhs(body: PublishXhsRequest) -> Dict[str, Any]:
         title=body.title,
         tags=body.tags,
     )
+
+
+@app.post("/generate_topic_cards")
+async def direct_generate_topic_cards_post(body: GenerateCardsRequest) -> Dict[str, Any]:
+    """直接生成数据卡片（POST 请求）"""
+    return await generate_topic_cards(job_id=body.job_id, card_types=body.card_types)
+
+
+@app.get("/generate_topic_cards")
+async def direct_generate_topic_cards_get(
+    job_id: Optional[str] = None,
+    card_types: Optional[str] = None,
+) -> Dict[str, Any]:
+    """直接生成数据卡片（GET 请求）"""
+    parsed_types = None
+    if card_types:
+        parsed_types = [item.strip() for item in card_types.split(",") if item.strip()]
+    return await generate_topic_cards(job_id=job_id, card_types=parsed_types)
 
 
 @app.post("/register_webhook")

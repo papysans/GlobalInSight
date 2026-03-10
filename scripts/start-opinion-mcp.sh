@@ -54,6 +54,10 @@ echo ""
 echo -e "${GREEN}启动 Opinion MCP 服务...${NC}"
 echo "端口: 18061"
 echo "验证: curl http://localhost:18061/health"
+if [ -z "${IMAGE_PUBLISH_MODE}" ]; then
+    export IMAGE_PUBLISH_MODE=ai_and_cards
+fi
+echo "图片发布模式: ${IMAGE_PUBLISH_MODE}"
 echo ""
 echo -e "${BLUE}可用工具:${NC}"
 echo "  • analyze_topic     - 启动舆论分析任务"
@@ -69,4 +73,4 @@ echo -e "${YELLOW}提示: 按 Ctrl+C 停止服务${NC}"
 echo ""
 
 # 启动服务
-python -m opinion_mcp.server --port 18061
+python3 -m opinion_mcp.server --port 18061

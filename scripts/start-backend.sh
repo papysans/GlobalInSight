@@ -38,4 +38,4 @@ echo -e "${YELLOW}提示: 按 Ctrl+C 停止服务${NC}"
 echo ""
 
 # 启动服务
-python -m app.main
+python3 -m app.main

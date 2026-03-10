@@ -287,7 +287,7 @@ class Config:
     #   - "ai_only": 阶段 F，仅使用 AI 生成的配图
     #   - "ai_and_cards": 阶段 B，同时使用数据卡片和 AI 配图
     IMAGE_PUBLISH_CONFIG = {
-        "image_publish_mode": os.getenv("IMAGE_PUBLISH_MODE", "ai_only"),
+        "image_publish_mode": os.getenv("IMAGE_PUBLISH_MODE", "ai_and_cards"),
         "render_service_url": os.getenv("RENDER_SERVICE_URL", "http://localhost:8000/render"),
         "render_timeout": int(os.getenv("RENDER_TIMEOUT", "30")),
         "browser_pool_min": int(os.getenv("BROWSER_POOL_MIN", "2")),
