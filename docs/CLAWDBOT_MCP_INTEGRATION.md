@@ -9,6 +9,26 @@ Opinion MCP 是 GlobalInSight 舆论分析系统的 MCP 服务封装，可与 Cl
 
 **服务地址**: `http://localhost:18061`
 
+### 运行时绑定方式
+
+- `mcporter / ClawdBot` 使用 base URL: `http://localhost:18061`
+- `原生 MCP SSE` 使用 URL: `http://localhost:18061/sse`
+- 逻辑 server name 统一为 `opinion-analyzer`
+
+最小配置示例：
+
+```json
+{
+  "mcpServers": {
+    "opinion-analyzer": {
+      "url": "http://localhost:18061"
+    }
+  }
+}
+```
+
+仓库内提供的原生 MCP 示例文件见 [docs/clawdbot-skill/mcp.json](/Volumes/Work/Projects/GlobalInSight/docs/clawdbot-skill/mcp.json)。
+
 ### 支持的端点
 
 | 端点 | 用途 |
@@ -20,25 +40,42 @@ Opinion MCP 是 GlobalInSight 舆论分析系统的 MCP 服务封装，可与 Cl
 | `GET /health` | 健康检查 |
 | `GET /docs` | API 文档 |
 
-## 🎯 推荐：使用 ClawdBot Skill
+## 🎯 推荐：使用拆分后的 ClawdBot Skills
 
-**不需要每次都喂文档！** 你可以创建一个 Skill，让 ClawdBot 自动加载。
+**不需要每次都喂文档！** 推荐把原来的单体 skill 拆成 3 个单一意图的 skill，避免“今日热点”误入深度分析流程。
+
+原始单体版已归档到 `docs/clawdbot-skill/backups/20260310-143835-opinion-analyzer-original/`。
+
+现在还额外提供一个兼容旧命令的总控 router skill：`opinion-analyzer`。它恢复原来的入口，但内部按原子步骤和状态总线执行。
 
 ### 安装方法
 
 **方法一：复制到 skills 目录（推荐）**
 
 ```bash
-# 创建 skills 目录并复制文件
+# 安装 3 个技能
+for skill in opinion-hot-news opinion-topic-analysis xhs-publisher; do
+  mkdir -p ~/.clawdbot/skills/$skill
+  cp docs/clawdbot-skill/$skill/SKILL.md ~/.clawdbot/skills/$skill/
+done
+```
+这 3 个 skill 现在都是“单文件平铺版”，OpenClaw 不需要额外读取 `references/`。
+
+**可选：安装兼容旧命令的 router skill**
+
+```bash
 mkdir -p ~/.clawdbot/skills/opinion-analyzer
 cp docs/clawdbot-skill/SKILL.md ~/.clawdbot/skills/opinion-analyzer/
+cp -R docs/clawdbot-skill/references ~/.clawdbot/skills/opinion-analyzer/
 ```
 
 **方法二：使用 ClawdHub CLI**
 
 ```bash
-# 如果已发布到 ClawdHub
-npx clawdhub@latest install opinion-analyzer
+# 如果已发布到 ClawdHub，可分别安装
+npx clawdhub@latest install opinion-hot-news
+npx clawdhub@latest install opinion-topic-analysis
+npx clawdhub@latest install xhs-publisher
 ```
 
 ### Skills 加载优先级
@@ -54,6 +91,9 @@ npx clawdhub@latest install opinion-analyzer
 ```bash
 # 检查文件是否存在
 ls ~/.clawdbot/skills/opinion-analyzer/SKILL.md
+ls ~/.clawdbot/skills/opinion-hot-news/SKILL.md
+ls ~/.clawdbot/skills/opinion-topic-analysis/SKILL.md
+ls ~/.clawdbot/skills/xhs-publisher/SKILL.md
 
 # 在 ClawdBot 中开始新会话
 # 输入 /new 或重启 Gateway
@@ -66,6 +106,9 @@ ls ~/.clawdbot/skills/opinion-analyzer/SKILL.md
 **方式一：斜杠命令**
 ```
 /opinion-analyzer 分析一下 DeepSeek R1 开源
+/opinion-hot-news 看看今日热点
+/opinion-topic-analysis 分析一下 DeepSeek R1 开源
+/xhs-publisher 发布最近完成的任务
 ```
 
 输入 `/` 后，ClawdBot 会自动显示可用技能列表。
@@ -75,19 +118,24 @@ ls ~/.clawdbot/skills/opinion-analyzer/SKILL.md
 帮我分析一下大批中成药将退出市场这个话题
 ```
 
-ClawdBot 会根据 description 自动识别并调用技能。
+ClawdBot 会根据 description 自动识别并调用对应技能。
 
 ### Skill 激活触发词
 
-当你说以下内容时会自动激活：
-- "分析话题"、"舆情分析"
-- "热榜"、"热点"
-- "小红书发布"
+推荐按意图拆分触发：
+- `opinion-analyzer`: 兼容旧入口，先路由再执行原子步骤
+- `opinion-hot-news`: “今日热点”“热榜”“榜单”“今天有什么值得关注的话题”
+- `opinion-topic-analysis`: “分析一下 XXX”“做舆情分析”“分析这个话题”
+- `xhs-publisher`: “发到小红书”“发布最近完成的任务”“改下标题再发”
 
 ### ⚠️ 常见问题
 
 **Q: Skill 没有加载？**
-1. 检查路径是否正确：`~/.clawdbot/skills/opinion-analyzer/SKILL.md`
+1. 检查路径是否正确：
+   - `~/.clawdbot/skills/opinion-analyzer/SKILL.md`
+   - `~/.clawdbot/skills/opinion-hot-news/SKILL.md`
+   - `~/.clawdbot/skills/opinion-topic-analysis/SKILL.md`
+   - `~/.clawdbot/skills/xhs-publisher/SKILL.md`
 2. 开始新会话：在 ClawdBot 中输入 `/new`
 3. 检查 YAML 格式：metadata 必须是单行 JSON
 

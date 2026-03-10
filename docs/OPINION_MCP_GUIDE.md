@@ -52,6 +52,23 @@ Opinion MCP Server 是 GlobalInSight 舆论分析系统的 MCP (Model Context Pr
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+### 运行时绑定
+
+- `mcporter / ClawdBot`: server name=`opinion-analyzer`, URL=`http://localhost:18061`
+- `原生 MCP SSE`: transport=`sse`, URL=`http://localhost:18061/sse`
+
+最小 `mcporter` 配置示例：
+
+```json
+{
+  "mcpServers": {
+    "opinion-analyzer": {
+      "url": "http://localhost:18061"
+    }
+  }
+}
+```
+
 ---
 
 ## 安装与启动
@@ -439,7 +456,16 @@ Opinion MCP Server 提供 8 个 MCP 工具：
 
 ### 配置 ClawdBot
 
-ClawdBot 使用 `mcporter` skill 连接 MCP 服务器。在 ClawdBot 配置文件中添加：
+ClawdBot 使用 `mcporter` skill 连接 MCP 服务器。推荐把交互拆成 3 个 skills：
+
+- `opinion-analyzer`（兼容旧入口的 router skill）
+- `opinion-hot-news`
+- `opinion-topic-analysis`
+- `xhs-publisher`
+
+其中 `opinion-hot-news`、`opinion-topic-analysis`、`xhs-publisher` 现在都采用“单文件平铺”的原子步骤结构，安装时只需要复制各自的 `SKILL.md`。
+
+在 ClawdBot 配置文件中添加：
 
 ```yaml
 # clawdbot-config.yaml
