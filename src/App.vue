@@ -77,23 +77,25 @@
 
     <!-- Main Content -->
     <main class="flex-grow relative">
-      <!-- Hot View: 热榜 -->
-      <HotView v-if="currentTab === 'hot'" @switch-tab="switchTab" :dark-mode="isDark" />
-
-      <!-- Home View: 舆情推演 -->
-      <HomeView v-if="currentTab === 'home'" :dark-mode="isDark" />
-
-      <!-- Data View: 数据洞察 (使用 v-show 保持组件挂载，以便接收事件) -->
-      <DataView v-show="currentTab === 'data'" ref="dataViewRef" data-view="data" :dark-mode="isDark" />
-
-      <!-- Arch View: 系统架构 -->
-      <ArchView v-if="currentTab === 'arch'" :dark-mode="isDark" />
-
-      <!-- Vision View: 愿景与价值 (始终深色) -->
-      <VisionView v-if="currentTab === 'vision'" />
-
-      <!-- Settings View: 设置 -->
-      <SettingsView v-if="currentTab === 'settings'" @api-updated="handleApiUpdated" :dark-mode="isDark" />
+      <!--
+        使用 Vue Router 统一承载页面视图：
+        - 不改变现有导航 UI：仍由顶部按钮触发 switchTab
+        - 仅让 URL 与当前页面保持同步，支持刷新/直达链接
+      -->
+      <router-view v-slot="{ Component }">
+        <!--
+          保持 DataView 的实例不被销毁（对应之前 v-show 的“保持挂载”语义）
+          include 依赖组件的 name，这里通过 DataView.vue 的 defineOptions({ name: 'DataView' }) 保证命中
+        -->
+        <keep-alive include="DataView">
+          <component 
+            :is="Component" 
+            v-bind="currentViewProps" 
+            @switch-tab="switchTab" 
+            @api-updated="handleApiUpdated" 
+          />
+        </keep-alive>
+      </router-view>
     </main>
 
     <!-- Global Footer -->
@@ -116,31 +118,43 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Zap, PieChart, Network, Flag, Settings, Flame, Github, Sun, Moon } from 'lucide-vue-next'
 import logo from './logo/logo-light.png'
-import HomeView from './views/HomeView.vue'
-import HotView from './views/HotView.vue'
-import DataView from './views/DataView.vue'
-import ArchView from './views/ArchView.vue'
-import VisionView from './views/VisionView.vue'
-import SettingsView from './views/SettingsView.vue'
 import { useConfigStore } from './stores/config'
 
-const currentTab = ref('home')
-const dataViewRef = ref(null)
+const route = useRoute()
+const router = useRouter()
 const configStore = useConfigStore()
 
-// 计算是否为深色模式
+// 允许切换的页面（与路由 name 对齐），用于保证 switchTab 输入安全
+const TABS = ['home', 'hot', 'data', 'arch', 'vision', 'settings']
+const isTab = (value) => typeof value === 'string' && TABS.includes(value)
+
 const isDark = computed(() => configStore.isDarkMode)
 
-// 切换主题
+// 当前页面：来源于路由 name（避免再维护一份本地 tab 状态）
+const currentTab = computed(() => (isTab(route.name) ? route.name : 'home'))
+
+// 向路由页面透传的 props：
+// - vision 页面原本“始终深色/不接收 darkMode”，因此不传 darkMode
+// - 其他页面沿用 :dark-mode="isDark" 的行为（对应 prop 名 darkMode）
+const currentViewProps = computed(() => {
+  if (currentTab.value === 'vision') return {}
+  return { darkMode: isDark.value }
+})
+
 const toggleTheme = () => {
   configStore.toggleDarkMode()
 }
 
+// 顶部导航切换：通过 push 跳转路由，从而同步 URL
 const switchTab = (tab) => {
-  currentTab.value = tab
+  const nextTab = isTab(tab) ? tab : 'home'
+  if (route.name !== nextTab) {
+    router.push({ name: nextTab })
+  }
   window.scrollTo(0, 0)
 }
 
@@ -148,17 +162,16 @@ const handleApiUpdated = () => {
   // API更新后的处理
 }
 
-// 初始化深色模式和首次访问逻辑
 onMounted(() => {
   configStore.initDarkMode()
   
-  // 首次访问显示愿景与价值页面，之后显示舆情推演页面
+  // 首次访问自动进入“愿景与价值”，之后保持用户上次访问路径（支持直达链接）
   const hasVisited = localStorage.getItem('globalinsight_has_visited')
   if (!hasVisited) {
-    currentTab.value = 'vision'
     localStorage.setItem('globalinsight_has_visited', 'true')
-  } else {
-    currentTab.value = 'home'
+    if (route.name !== 'vision') {
+      router.replace({ name: 'vision' })
+    }
   }
 })
 </script>

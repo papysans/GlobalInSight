@@ -1,4 +1,9 @@
 <template>
+    <!--
+      热榜页
+      - 拉取跨平台热榜数据，支持平台/分区/排序/搜索过滤
+      - 选择某个热点后可触发“一键推演”进入 HomeView
+    -->
     <div class="view-section animate-fade-in">
         <!-- Header & Filters -->
         <header class="relative bg-white border-b border-slate-100 pt-10 pb-6 px-4">
@@ -282,15 +287,17 @@ import {
 } from 'lucide-vue-next'
 import { useConfigStore } from '../stores/config'
 
+// 事件：通知上层（App.vue）切换到指定页面
 const emit = defineEmits(['switch-tab'])
 
+// 保持与旧版 Tab 切换一致：由本页面发出事件，让上层负责路由/视图切换
 const switchTab = (tab) => {
     emit('switch-tab', tab)
 }
 
 const configStore = useConfigStore()
 
-// State
+// State：热榜列表 + 当前选中话题 + 解释/推演相关状态
 const topics = ref([])
 const selectedTopic = ref(null)
 const topicInsight = ref(null)

@@ -1,4 +1,9 @@
 <template>
+  <!--
+    愿景与价值页
+    - 作为产品介绍/落地页，使用 GSAP + ScrollTrigger 做分段入场动画
+    - 背景根据主题切换（CosmicBackground / OceanWaveBackground）
+  -->
   <div class="vision-page relative min-h-screen overflow-x-hidden" :class="isDarkMode ? 'dark-theme' : 'light-theme'">
     <!-- Three.js 背景 - 根据主题切换 -->
     <CosmicBackground v-if="isDarkMode" />
@@ -246,6 +251,7 @@ import CosmicBackground from '@/components/CosmicBackground.vue'
 import OceanWaveBackground from '@/components/OceanWaveBackground.vue'
 import { useConfigStore } from '@/stores/config'
 
+// GSAP 插件注册：用于滚动触发动画
 gsap.registerPlugin(ScrollTrigger)
 
 // Store
@@ -294,6 +300,7 @@ let ctx
 onMounted(async () => {
   await nextTick()
   
+  // 使用 gsap.context 便于在 onUnmounted 时统一清理动画与选择器绑定
   ctx = gsap.context(() => {
     // Hero 动画序列
     const heroTl = gsap.timeline()
@@ -431,6 +438,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // 清理页面动画，避免路由切换后 ScrollTrigger 监听残留
   ctx?.revert()
   ScrollTrigger.getAll().forEach(t => t.kill())
 })

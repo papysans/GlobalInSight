@@ -1,4 +1,9 @@
 <template>
+  <!--
+    系统架构页
+    - 展示 Multi-Agent 系统的数据流与组件关系
+    - 主要为静态展示：3D 网络可视化 + 数据处理流水线 + 能力矩阵
+  -->
   <div class="view-section animate-fade-in py-12 px-4 overflow-hidden">
     <div class="max-w-7xl mx-auto">
       <!-- 标题区域 -->
@@ -199,6 +204,7 @@
 </template>
 
 <script setup>
+// 该页面为展示型页面，仅引入图标与可视化组件，不包含业务状态
 import {
   Network, Database, Cpu, BrainCircuit, Sparkles, Send, ArrowRight, ArrowDown,
   Workflow, Zap, Server, Monitor, Cloud
