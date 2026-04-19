@@ -1,4 +1,10 @@
 <template>
+  <!--
+    数据洞察页
+    - 基于 analysisStore 的结构化结果，展示洞察卡/雷达图/时间线/趋势图
+    - 内置隐藏 Canvas 组件用于导出可发布的图片资产
+    - 被 App.vue keep-alive 缓存，确保从其他页面切回时状态不丢失
+  -->
   <div class="view-section animate-fade-in py-12 px-4">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-8">
@@ -432,6 +438,9 @@ import TrendChart from '../components/TrendChart.vue'
 import RadarChartCanvas from '../components/canvas/RadarChartCanvas.vue'
 import DebateTimelineCanvas from '../components/canvas/DebateTimelineCanvas.vue'
 import TrendChartCanvas from '../components/canvas/TrendChartCanvas.vue'
+
+// 用于 keep-alive include 命中（App.vue 中 include="DataView"）
+defineOptions({ name: 'DataView' })
 
 Chart.register(...registerables)
 

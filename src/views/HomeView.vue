@@ -1,4 +1,10 @@
 <template>
+  <!--
+    首页 / 舆情推演页
+    - 输入议题与辩论轮数，启动后端工作流
+    - 实时展示多 Agent 辩论日志、工作流进度与最终洞察
+    - 同步生成小红书标题卡/配图，并提供预览与导出能力
+  -->
   <div class="view-section animate-fade-in">
     <header class="relative bg-white border-b border-slate-100 pt-12 pb-8 px-4">
       <div class="max-w-4xl mx-auto text-center">
@@ -471,7 +477,10 @@ import MarkdownIt from 'markdown-it'
 import XiaohongshuCard from '../components/XiaohongshuCard.vue'
 import CopywritingEditor from '../components/CopywritingEditor.vue'
 
+// Markdown 渲染：用于展示辩论过程中的富文本输出
 const md = new MarkdownIt()
+
+// Store：分析数据、主题配置、工作流状态
 const analysisStore = useAnalysisStore()
 const configStore = useConfigStore()
 const workflowStore = useWorkflowStore()
@@ -483,9 +492,11 @@ const isDark = computed(() => configStore.isDarkMode)
 const { logs: storeLogs, isEditing, editableContent } = storeToRefs(analysisStore)
 const { status: workflowStatus } = storeToRefs(workflowStore)
 
+// 用户输入：议题 + 辩论轮数
 const topic = ref('')
 const xiaohongshuCardRef = ref(null)
 
+// 标题卡图片生成：切换到 Title Card 对应的展示位，等待组件渲染后生成图片
 const generateTitleCardImage = async () => {
   // Find the index of title card in displayImages (where value is null)
   const titleCardIndex = displayImages.value.findIndex(img => img === null)

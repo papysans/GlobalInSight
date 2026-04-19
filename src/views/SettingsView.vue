@@ -432,6 +432,9 @@ import { useConfigStore } from '../stores/config'
 import { useAnalysisStore } from '../stores/analysis'
 import { api } from '../api'
 
+// 设置页
+// - 管理 LLM Provider Key + 模型配置（本地保存并同步到后端）
+// - 选择数据采集平台（会影响分析与数据洞察生成）
 const emit = defineEmits(['api-updated'])
 
 const configStore = useConfigStore()

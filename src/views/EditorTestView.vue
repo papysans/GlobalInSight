@@ -1,4 +1,9 @@
 <template>
+  <!--
+    文案编辑测试页（开发/验证用途）
+    - 提供一套可复现的测试数据，验证 CopywritingEditor 的编辑/保存/取消行为
+    - 右侧手机壳用于观察标题/正文/图片选择排序的实时效果
+  -->
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-7xl mx-auto">
       <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -170,6 +175,7 @@ import { storeToRefs } from 'pinia'
 import { Edit, Check, X, Download, Copy } from 'lucide-vue-next'
 import CopywritingEditor from '../components/CopywritingEditor.vue'
 
+// 该页面通过直接写入 analysisStore 来构造测试场景（不依赖后端 API）
 const analysisStore = useAnalysisStore()
 const { isEditing, editableContent } = storeToRefs(analysisStore)
 
